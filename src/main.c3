@@ -24,13 +24,14 @@ struct Person (Serializable, Deserializable) {
   String name;
   Animal[] pets;
   Maybe{Person*} friend @Dessert({ .rename = "my_friend" });
-  bool is_cool @Dessert({ .skip = true });
+  bool is_cool;// @Dessert({ .skip = true });
 }
 
 fn void Person.print(&self) {
   io::print("(Person) { ");
   io::printf(".name = \"%s\", ", self.name);
   io::printf(".age = %s, ", self.age);
+  io::printf(".is_cool = %s, ", self.is_cool);
   io::print(".pets = [");
   foreach (i, pet : self.pets) {
     io::printf("(Animal) { .name = \"%s\", .specie = \"%s\" }", pet.name, pet.specie);

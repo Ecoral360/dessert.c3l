@@ -39,6 +39,9 @@ fn void? String.serialize(&self, Serializer ser) @dynamic {
 fn void? int.serialize(&self, Serializer ser) @dynamic {
   return ser.serialize_int(*self);
 }
+fn void? bool.serialize(&self, Serializer ser) @dynamic {
+  return ser.serialize_bool(*self);
+}
 
 fn void? Maybe{Serializable}.serialize(&self, Serializer ser) @dynamic {
   if (catch self.get()) {
@@ -105,7 +108,7 @@ macro serialize_value(serializer, value, $field_name) {
     $case $defined(value.serialize):
       value.serialize(serializer)!;
     $default:
-      $error("Field not serializable " + $field_name);
+      $error("Field not serializable");
   $endswitch
 }
 
