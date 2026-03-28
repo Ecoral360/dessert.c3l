@@ -90,6 +90,9 @@ macro impl_serialize(serializer, s) {
 
 macro serialize_value(serializer, value, $field_name) {
   $switch:
+    $case $defined(value.serialize) &&& $defined(value.serialize(serializer)):
+      value.serialize(serializer)!;
+
     $case $defined(value.value) &&& $defined(value == maybe::value{$typeof(value.value)}(value.value)):
       var inner = value.get();
       if (catch inner) {
@@ -98,15 +101,12 @@ macro serialize_value(serializer, value, $field_name) {
         inner.serialize(serializer)!;
       }
 
-    $case $typeof(value).kindof == ARRAY:
-    $case $typeof(value).kindof == SLICE:
+    $case $defined(value.len) &&& $defined(value[0]):
       serializer.serialize_slice_start()!;
       foreach (el: value) {
         el.serialize(serializer)!;
       }
       serializer.serialize_slice_end(value.len)!;
-    $case $defined(value.serialize):
-      value.serialize(serializer)!;
     $default:
       $error("Field not serializable");
   $endswitch

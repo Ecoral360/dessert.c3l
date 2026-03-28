@@ -41,6 +41,13 @@ fn void? bool.deserialize(&self, Deserializer ser) @dynamic {
 macro deserialize(deserializer) <Output> {
   Output value;
   $switch:
+    $case Output.kindof == POINTER:
+      return &&deserialize{Output.inner}(deserializer);
+
+    $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer)):
+      value.deserialize(deserializer)!;
+      return value;
+
     $case $defined(value.value) &&& $defined(value == maybe::value{$typeof(value.value)}(value.value)):
       if (deserializer.next_null()!) {
         return (Maybe{$typeof(value.value)}){};
@@ -48,11 +55,7 @@ macro deserialize(deserializer) <Output> {
         return maybe::value{$typeof(value.value)}(deserialize{$typeof(value.value)}(deserializer)!);
       }
 
-    $case Output.kindof == POINTER:
-      return &&deserialize{Output.inner}(deserializer);
-
-    $case Output.kindof == ARRAY:
-    $case Output.kindof == SLICE:
+    $case $defined(value.len) &&& $defined(value[0]):
       List{Output.inner} elements;
       deserializer.slice_start()!;
       while(deserializer.has_next_slice_item()!) {
@@ -60,9 +63,10 @@ macro deserialize(deserializer) <Output> {
       }
       deserializer.slice_end()!;
       return elements.to_array(mem);
+
     $default:
-      value.deserialize(deserializer)!;
-      return value;
+      $error("The value cannot be deserialize");
+
   $endswitch
 }
 

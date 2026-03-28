@@ -86,7 +86,8 @@ fn int main(String[] args) {
   amenda_json.print()!!;
 	io::printn("");
 
-  JsonValue? connor_json = ser::serialize(&&json::serializer(), &connor);
+  JsonSerializer s = json::serializer();
+  JsonValue? connor_json = ser::serialize(&s, &connor);
 
   Person? p = des::deserialize{Person}(&&json::deserializer(connor_json));
 
