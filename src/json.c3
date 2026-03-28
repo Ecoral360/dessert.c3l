@@ -114,7 +114,7 @@ fn String? JsonValue.to_string(self) {
 }
 
 
-module dessert::json::ser;
+module dessert::json;
 import dessert::ser;
 import dessert::des;
 import json;
@@ -129,7 +129,7 @@ struct JsonSerializer (Serializer) {
   List{JsonValue} output;
 }
 
-fn JsonSerializer new_json_serializer() {
+fn JsonSerializer serializer() {
   List{JsonValue} output;
   output.init(mem);
   return { .output = output };
@@ -191,12 +191,12 @@ fn void? JsonSerializer.serialize_field_end(&self) @dynamic {
 fn JsonValue? JsonSerializer.result(&self) => self.output.pop();
 
 
-module dessert::json::des;
-import dessert::des;
-import json;
-import std::core::ascii;
-import std::encoding::json;
-import std::io;
+// module dessert::json::des;
+// import dessert::des;
+// import json;
+// import std::core::ascii;
+// import std::encoding::json;
+// import std::io;
 
 faultdef 
   INVALID_OBJECT, 
@@ -219,7 +219,7 @@ fn void? JsonDeserializer.skip_whitespace(&self) {
   }
 }
 
-fn JsonDeserializer? new_json_deserializer(JsonValue input) {
+fn JsonDeserializer? deserializer(JsonValue input) {
   return { .input = { .utf8 = input.to_string()! } };
 }
 

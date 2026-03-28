@@ -38,25 +38,25 @@ fn void? bool.deserialize(&self, Deserializer ser) @dynamic {
   *self = ser.next_bool()!;
 }
 
-macro deserialize($Output, deserializer) {
-  $Output value;
+macro deserialize(deserializer) <Output> {
+  Output value;
   $switch:
     $case $defined(value.value) &&& $defined(value == maybe::value{$typeof(value.value)}(value.value)):
       if (deserializer.next_null()!) {
         return (Maybe{$typeof(value.value)}){};
       } else {
-        return maybe::value{$typeof(value.value)}(deserialize($typeof(value.value), deserializer)!);
+        return maybe::value{$typeof(value.value)}(deserialize{$typeof(value.value)}(deserializer)!);
       }
 
-    $case $Output.kindof == POINTER:
-      return &&deserialize($Output.inner, deserializer);
+    $case Output.kindof == POINTER:
+      return &&deserialize{Output.inner}(deserializer);
 
-    $case $Output.kindof == ARRAY:
-    $case $Output.kindof == SLICE:
-      List{$Output.inner} elements;
+    $case Output.kindof == ARRAY:
+    $case Output.kindof == SLICE:
+      List{Output.inner} elements;
       deserializer.slice_start()!;
       while(deserializer.has_next_slice_item()!) {
-        elements.push(deserialize($Output.inner, deserializer)!);
+        elements.push(deserialize{Output.inner}(deserializer)!);
       }
       deserializer.slice_end()!;
       return elements.to_array(mem);
@@ -85,7 +85,7 @@ macro impl_deserialize(deserializer, value) {
         if (names.contains(next_key)) {
           return DUPLICATED_KEY~;
         }
-        value.$eval($member.nameof) = deserialize($member.typeid, deserializer)!;
+        value.$eval($member.nameof) = deserialize{$member.typeid}(deserializer)!;
 
         names.push($member.nameof);
       }
