@@ -348,11 +348,11 @@ fn double? JsonDeserializer.next_double(&self) @dynamic {
       while (ascii::is_digit((char) c)) {
         self.input.next()!;
         t.append(c);
-        Char32? next = self.input.peek();
-        if (catch next) {
+        Char32? next2 = self.input.peek();
+        if (catch next2) {
           return t.str_view().to_double() ?? INVALID_NUMBER~;
         }
-        c = next;
+        c = next2;
       }
     }
     if ((c | 32) == 'e') {
