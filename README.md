@@ -1,4 +1,4 @@
-# Dessert 🍰
+# dessert 🍰
 
 A universal serialization and deserialization library for the [C3 programming language](https://c3-lang.org/).
 
