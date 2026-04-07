@@ -1,24 +1,40 @@
 module dessert::ser;
-import std::core::types;
 import dessert::json;
+import dessert::utils;
+
 import std::io;
+import std::core::types;
 import std::collections::maybe;
 
 interface Serializer {
   fn void? serialize_bool(bool b);
-  fn void? serialize_char(char b);
-  fn void? serialize_int(int b);
+
+  fn void? serialize_char(char c);
+  fn void? serialize_ichar(ichar c) @optional;
+
+  fn void? serialize_short(short s) @optional;
+  fn void? serialize_int(int i) @optional;
+  fn void? serialize_long(long l);
+  fn void? serialize_int128(int128 i) @optional;
+
+  fn void? serialize_uint(uint i) @optional;
+  fn void? serialize_ushort(ushort s) @optional;
+  fn void? serialize_ulong(ulong l) @optional;
+  fn void? serialize_uint128(uint128 i) @optional;
+
   fn void? serialize_string(String s);
+  fn void? serialize_zstring(ZString s) @optional;
+
+  fn void? serialize_float16(float16 f) @optional;
+  fn void? serialize_float(float f) @optional;
+  fn void? serialize_double(double d);
+
+  fn void? serialize_float128(float128 f) @optional;
 
   fn void? serialize_null();
-  // fn void? serialize_slice(Serializable[] values);
 
   fn void? serialize_slice_start();
   fn void? serialize_slice_end(ulong len);
-
-  // fn Output? serialize_short(short b);
-  // fn Output? serialize_usz(usz b);
-  // fn Output? serialize_long(long b);
 
   fn void? serialize_field_start(String name);
   fn void? serialize_field_end();
@@ -34,26 +50,8 @@ interface Serializable {
   fn void? serialize(Serializer serializer);
 }
 
-fn void? String.serialize(&self, Serializer ser) @dynamic {
-  return ser.serialize_string(*self);
-}
-fn void? int.serialize(&self, Serializer ser) @dynamic {
-  return ser.serialize_int(*self);
-}
-fn void? bool.serialize(&self, Serializer ser) @dynamic {
-  return ser.serialize_bool(*self);
-}
-
-fn void? Maybe{Serializable}.serialize(&self, Serializer ser) @dynamic {
-  if (catch self.get()) {
-    return ser.serialize_null();
-  } else {
-    return self.value.serialize(ser);
-  }
-}
-
 macro serialize(serializer, value) {
-  serialize_value(serializer, value)!;
+  serialize_value(serializer, value, {})!;
   return serializer.result();
 }
 
@@ -67,41 +65,48 @@ macro serialize(serializer, value) {
 */
 
 macro impl_serialize(s, serializer) {
-  serializer.struct_start()!;
-  $foreach $member : $typeof(s).inner.membersof:
-    var $dessert = $member.has_tagof("dessert") ??? $member.tagof("dessert") : (Dessert) {};
-    $if $typeof($dessert) != Dessert:
-      $error("Dessert tag value must be of type Dessert");
-    $endif
-    $if !$dessert.skip:
-      $if $dessert.validator.len > 0: 
-        if (!s.$eval($dessert.validator)(s.$eval($member.nameof))) {
-          return VALIDATOR_ERROR~;
-        }
-      $endif
-      serializer.serialize_field_start(
-        $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
-      )!;
-      serialize_value(serializer, s.$eval($member.nameof))!;
-      serializer.serialize_field_end()!;
-    $endif
-  $endforeach
-  serializer.struct_end()!;
+  $if $typeof(serializer) != Serializer:
+    $error "The serializer must be of type Serializer.";
+  $endif
+
+  $if $typeof(s).kindof != POINTER:
+    $error "The first parameter must be a &self pointer.";
+  $endif
+
+  $switch:
+    $case $typeof(s).inner.kindof == ENUM:
+      impl_serialize_enum(s, serializer)!;
+
+    $case $typeof(s).inner.kindof == STRUCT:
+      serializer.struct_start()!;
+      $foreach $member : $typeof(s).inner.membersof:
+        var $dessert = $member.has_tagof("dessert:ser") ??? $member.tagof("dessert:ser") : (Dessert) {};
+        $if $typeof($dessert) != Dessert:
+          $error("Dessert tag value must be of type Dessert");
+        $endif
+        $if !$dessert.skip:
+          $if $dessert.validator.len > 0: 
+            if (!s.$eval($dessert.validator)(s.$eval($member.nameof))) {
+              return VALIDATOR_ERROR~;
+            }
+          $endif
+          serializer.serialize_field_start(
+            $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+          )!;
+          serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
+          serializer.serialize_field_end()!;
+        $endif
+      $endforeach
+      serializer.struct_end()!;
+  $endswitch
 }
 
-macro @is_serializable(#value) {
-  return $defined(#value.serialize) ||| ($defined(#value.len) &&& $defined(#value[0])) ||| 
-    ($defined(#value.get) &&& $defined(#value.get()) &&& 
-     ($defined(#value.get()!) ||| $defined(#value == maybe::value{$typeof(#value.value)}(#value.value))));
-}
-
-macro serialize_value(serializer, value) {
+macro serialize_value(serializer, value, $config) {
   $switch:
     $case $defined(value.serialize) &&& $defined(value.serialize(serializer)):
       value.serialize(serializer)!;
 
-    $case ($defined(value.get) &&& $defined(value.get()) &&& 
-           ($defined(value.get()!) ||| $defined(value == maybe::value{$typeof(value.value)}(value.value)))):
+    $case utils::@is_maybe_expr(value):
       var inner = value.get();
       if (catch inner) {
         serializer.serialize_null()!;
@@ -122,48 +127,37 @@ macro serialize_value(serializer, value) {
         el.serialize(serializer)!;
       }
       serializer.serialize_slice_end(value.len)!;
+
     $default:
-      $error("Value not serializable");
+      $error @sprintf("Value not serializable: '%s (%s)'", $typeof(value).nameof, $typeof(value).kindof);
   $endswitch
 }
 
-// macro @serialize(#serializer, #value) {
-//   var serializer = #serializer;
-//   var value = #value;
-//
-//   $switch:
-//     $case $typeof(value).kindof == STRUCT:
-//       return @serialize_struct(serializer, value);
-//     $case $typeof(value).kindof == ARRAY:
-//     $case $typeof(value).kindof == SLICE:
-//       return @serialize_slice(serializer, value);
-//     $case $typeof(value).kindof == POINTER:
-//       if (value == null) {
-//         return serializer.serialize_null();
-//       } else {
-//         return @serialize(serializer, *value);
-//       }
-//     $case $typeof(value).kindof == SIGNED_INT:
-//       return serializer.serialize_int(value);
-//     $case types::is_same($typeof(value), String):
-//       return serializer.serialize_string(value);
-//     $default:
-//       return NOT_FOUND~;
-//   $endswitch
-// }
-//
-// macro @serialize_slice(serializer, #value) {
-//   serializer.serialize_slice_start()!;
-//   foreach (i, member : #value) {
-//     serializer.@serialize_slice_item(member)!;
-//   }
-//   return serializer.serialize_slice_end();
-// }
-//
-// macro @serialize_struct(serializer, value) {
-//   serializer.serialize_struct_start()!;
-//   $foreach $member : $typeof(value).membersof:
-//     serializer.@serialize_field($member.nameof, &value.$eval($member.nameof))!;
-//   $endforeach
-//   return serializer.serialize_struct_end();
-// }
+<*
+  @require $typeof(s).inner.kindof == ENUM
+*>
+macro impl_serialize_enum(s, serializer) @local {
+  var $type = $typeof(s).inner;
+  var $config = $type.has_tagof("dessert:ser:enum") ??? $type.tagof("dessert:ser:enum") : (DessertEnumConfig) {};
+
+  $switch $config.as:
+    $case NAME:
+      return serialize_value(serializer, s.name, {});
+
+    $case ORDINAL:
+      return serialize_value(serializer, s.ordinal, {});
+
+    $case FIELD:
+      var $field_name = $config.field;
+      $if $field_name.len == 0:
+        $error "When the 'enum_as' attribute is set to 'FIELD', 'enum_field' must be provided with the name of an associated field of the enum.";
+      $endif
+      return serialize_value(serializer, s.$eval($field_name), {});
+  $endswitch
+}
+
+macro @is_serializable(#value) {
+  return $defined(#value.serialize) ||| ($defined(#value.len) &&& $defined(#value[0])) ||| 
+    utils::@is_maybe(#value);
+}
+

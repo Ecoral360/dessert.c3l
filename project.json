@@ -6,7 +6,7 @@
   "dependency-search-paths": [
     "lib"
   ],
-  "dependencies": ["dessert"],
+  "dependencies": [],
   "authors": [
     "John Doe <john.doe@example.com>"
   ],

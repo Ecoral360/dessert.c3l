@@ -16,11 +16,11 @@ enum JsonValueKind {
 
 struct JsonValue (Printable) {
   union value {
-    int i;
-    float f;
+    long i;
+    double f;
     bool b;
     String s;
-    HashMap{String, JsonValue} d;
+    LinkedHashMap{String, JsonValue} d;
     List{JsonValue} l;
   }
 
@@ -53,12 +53,14 @@ fn void? JsonValue.print(self) {
       io::printf("{");
       ulong d_len = self.value.d.len();
       
-      foreach (i, entry : self.value.d.iter()) {
+      int i = 0;
+      self.value.d.@each_entry(; entry) {
         io::printf("\"%s\": ", entry.key);
         entry.value.print()!;
         if (i < d_len - 1) {
           io::print(", ");
         }
+        i++;
       };
       io::printf("}");
 
@@ -98,12 +100,14 @@ fn String? JsonValue.to_string(self) {
       s.append("{");
       ulong d_len = self.value.d.len();
       
-      foreach (i, entry : self.value.d.iter()) {
+      int i = 0;
+      self.value.d.@each_entry(; entry) {
         s.append(string::format(mem, "\"%s\": ", entry.key));
         s.append(entry.value.to_string()!);
         if (i < d_len - 1) {
           s.append(", ");
         }
+        i++;
       };
       s.append("}");
       return s.str_view();
@@ -113,7 +117,7 @@ fn String? JsonValue.to_string(self) {
   }
 }
 
-fn String? to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @private {
+fn String to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @private {
   DString pad;
   pad.init(mem);
   pad.append_repeat(' ', (usz) (indent * depth));
@@ -141,7 +145,7 @@ fn String? to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priv
       s.append("[\n");
       foreach (i, item : self.value.l) {
         s.append(inner_pad);
-        s.append(to_pretty_string(item, indent, depth + 1)!);
+        s.append(to_pretty_string(item, indent, depth + 1));
         if (i < l_len - 1) s.append(",");
         s.append("\n");
       }
@@ -154,23 +158,22 @@ fn String? to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priv
       ulong d_len = self.value.d.len();
       if (d_len == 0) return "{}";
       s.append("{\n");
-      foreach (i, entry : self.value.d.iter()) {
+      int i = 0;
+      self.value.d.@each_entry(; entry) {
         s.append(inner_pad);
         s.append(string::format(mem, "\"%s\": ", entry.key));
-        s.append(to_pretty_string(entry.value, indent: indent, depth: depth + 1)!);
+        s.append(to_pretty_string(entry.value, indent: indent, depth: depth + 1));
         if (i < d_len - 1) s.append(",");
         s.append("\n");
-      }
+        i++;
+      };
       s.append(pad);
       s.append("}");
       return s.str_view();
-    default:
-      return NOT_FOUND~;
   }
-
 }
 
-fn String? JsonValue.to_pretty_string(self, int indent = 2) {
+fn String JsonValue.to_pretty_string(self, int indent = 2) {
   return to_pretty_string(self, indent);
 }
 
@@ -208,8 +211,12 @@ fn void? JsonSerializer.serialize_char(&self, char c) @dynamic {
   self.output.push({ .kind = JsonValueKind.STRING, .value = { .s = {c} } });
 }
 
-fn void? JsonSerializer.serialize_int(&self, int i) @dynamic {
+fn void? JsonSerializer.serialize_long(&self, long i) @dynamic {
   self.output.push({ .kind = JsonValueKind.INT, .value = { .i = i } });
+}
+
+fn void? JsonSerializer.serialize_double(&self, double f) @dynamic {
+  self.output.push({ .kind = JsonValueKind.FLOAT, .value = { .f = f } });
 }
 
 fn void? JsonSerializer.serialize_string(&self, String s) @dynamic {
@@ -217,7 +224,7 @@ fn void? JsonSerializer.serialize_string(&self, String s) @dynamic {
 }
 
 fn void? JsonSerializer.struct_start(&self) @dynamic {
-  HashMap{String, JsonValue} d;
+  LinkedHashMap{String, JsonValue} d;
   d.init(mem);
   self.output.push({ .kind = JsonValueKind.DICT, .value = { .d = d } });
 }
