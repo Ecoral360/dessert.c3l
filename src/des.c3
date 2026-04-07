@@ -22,7 +22,7 @@ interface Deserializer {
 }
 
 faultdef VALIDATOR_ERROR;
-faultdef DUPLICATED_KEY;
+faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE;
 
 // Should be treated as a protocol, don't derive it directly
 interface Deserializable {
@@ -96,7 +96,16 @@ macro impl_deserialize(value, deserializer) {
       $switch $config.as:
         $case NAME:
           String name = deserializer.next_string()!;
-          *value = $type.$eval(name);
+          int found = -1;
+          foreach(i, v : $type.names) {
+            if (v == name) {
+              found = (int) i;
+              break;
+            }
+          }
+
+          if (found == -1) return INVALID_ENUM_VALUE~;
+          *value = $type.values[found];
 
         $case ORDINAL:
           var ordinal = deserialize{$type.inner}(deserializer)!;
@@ -110,7 +119,7 @@ macro impl_deserialize(value, deserializer) {
           $foreach $member : $type.membersof:
             $if $member.nameof == $field_name:
               var field_value = deserialize{$member.type}(deserializer)!;
-              *value = $type.lookup_field($eval($field_name), field_value);
+              *value = $type.lookup_field($eval($field_name), field_value)!;
             $endif
           $endforeach
       $endswitch

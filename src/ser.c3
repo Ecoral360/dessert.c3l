@@ -142,7 +142,7 @@ macro impl_serialize_enum(s, serializer) @local {
 
   $switch $config.as:
     $case NAME:
-      return serialize_value(serializer, s.name, {});
+      return serialize_value(serializer, s.nameof, {});
 
     $case ORDINAL:
       return serialize_value(serializer, s.ordinal, {});
@@ -150,7 +150,7 @@ macro impl_serialize_enum(s, serializer) @local {
     $case FIELD:
       var $field_name = $config.field;
       $if $field_name.len == 0:
-        $error "When the 'enum_as' attribute is set to 'FIELD', 'enum_field' must be provided with the name of an associated field of the enum.";
+        $error "While serializing an enum: When the 'as' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
       $endif
       return serialize_value(serializer, s.$eval($field_name), {});
   $endswitch

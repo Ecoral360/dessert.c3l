@@ -15,10 +15,10 @@ fn void? Animal.deserialize(&self, Deserializer deserializer) =>
   des::impl_deserialize(self, deserializer);
 
 
-enum State : (String name) @DessertEnum({ .as = ORDINAL }) {
-  WAITING { "waiting" },
-  SLEEPING { "sleeping" },
-  RUNNING { "running" },
+enum State : (String name) @DessertEnum({ .as = FIELD, .field = "name" }) {
+  WAITING { "wait" },
+  SLEEPING { "sleep" },
+  RUNNING { "run" },
 }
 
 fn void? State.serialize(&self, Serializer serializer) => 
