@@ -64,11 +64,7 @@ macro serialize(serializer, value) {
   - validator
 */
 
-macro impl_serialize(s, serializer) {
-  $if $typeof(serializer) != Serializer:
-    $error "The serializer must be of type Serializer.";
-  $endif
-
+macro impl_serialize(s, Serializer serializer) {
   $if $typeof(s).kindof != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif

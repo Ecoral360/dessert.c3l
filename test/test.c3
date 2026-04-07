@@ -51,6 +51,7 @@ fn void t() @test {
 
   JsonSerializer s = json::serializer();
   JsonValue json = ser::serialize(&s, connor)!!;
+  defer json.free();
 
   io::printn(json.to_pretty_string());
 

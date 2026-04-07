@@ -52,7 +52,7 @@ macro @is_deserializable($Output) {
      ($defined($value.get()!) ||| $defined($value == maybe::value{$typeof($value.value)}($value.value))));
 }
 
-macro deserialize(deserializer) <Output> {
+macro deserialize(Deserializer deserializer) <Output> {
   Output value;
   $switch:
     $case Output.kindof == POINTER:
@@ -85,11 +85,7 @@ macro deserialize(deserializer) <Output> {
   $endswitch
 }
 
-macro impl_deserialize(value, deserializer) {
-  $if $typeof(deserializer) != Deserializer:
-    $error "The deserializer must be of type Deserializer.";
-  $endif
-
+macro impl_deserialize(value, Deserializer deserializer) {
   $if $typeof(value).kindof != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif
