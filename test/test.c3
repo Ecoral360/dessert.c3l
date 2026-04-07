@@ -57,7 +57,6 @@ fn void t() @test {
   Person p = des::deserialize{Person}(&&json::deserializer(json.to_string()))!!;
 
   io::printfn("%s\n%s", string::from_struct(mem, p), string::from_struct(mem, p.pets[0]));
-  assert(false);
 
   // io::printfn("Person named %s with a %s named %s", p.name, p.pets[0].specie, p.pets[0].name);
 }
