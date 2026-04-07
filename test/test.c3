@@ -33,6 +33,7 @@ struct Person {
   Animal[] pets;
   Maybe{Person*} friend @Dessert({ .rename = "my_friend" });
   bool is_cool @Dessert({ .skip = true });
+  ulong a;
   State state;
 }
 

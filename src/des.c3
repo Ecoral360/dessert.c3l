@@ -16,6 +16,11 @@ interface Deserializer {
 
   fn String? next_string();
   fn int? next_int();
+
+  // fn int? next_short() @optional;
+  // fn long? next_long() @optional;
+  // fn ulong? next_ulong();
+
   fn double? next_double();
   fn bool? next_bool();
   fn bool? next_null();
@@ -34,6 +39,9 @@ fn void? String.deserialize(&self, Deserializer ser) @dynamic {
 }
 fn void? int.deserialize(&self, Deserializer ser) @dynamic {
   *self = ser.next_int()!;
+}
+fn void? ulong.deserialize(&self, Deserializer ser) @dynamic {
+  *self = (ulong) ser.next_int()!;
 }
 fn void? bool.deserialize(&self, Deserializer ser) @dynamic {
   *self = ser.next_bool()!;

@@ -215,6 +215,10 @@ fn void? JsonSerializer.serialize_long(&self, long i) @dynamic {
   self.output.push({ .kind = JsonValueKind.INT, .value = { .i = i } });
 }
 
+fn void? JsonSerializer.serialize_ulong(&self, ulong i) @dynamic {
+  self.output.push({ .kind = JsonValueKind.INT, .value = { .i = (long) i } });
+}
+
 fn void? JsonSerializer.serialize_double(&self, double f) @dynamic {
   self.output.push({ .kind = JsonValueKind.FLOAT, .value = { .f = f } });
 }
