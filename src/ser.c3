@@ -154,6 +154,6 @@ macro impl_serialize_enum(s, serializer) @local {
 
 macro @is_serializable(#value) {
   return $defined(#value.serialize) ||| ($defined(#value.len) &&& $defined(#value[0])) ||| 
-    utils::@is_maybe(#value);
+    utils::@is_maybe_expr(#value);
 }
 
