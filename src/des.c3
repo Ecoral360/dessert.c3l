@@ -52,13 +52,17 @@ macro @is_deserializable($Output) {
      ($defined($value.get()!) ||| $defined($value == maybe::value{$typeof($value.value)}($value.value))));
 }
 
-fn Output? deserialize(Deserializer deserializer) <Output> {
+macro deserialize(Deserializer deserializer) <Output> {
   Output value;
   $switch:
     $case Output.kindof == POINTER:
-      Output v = mem::new(Output.inner);
-      *v = deserialize{Output.inner}(deserializer)!;
-      return v;
+      if (deserializer.next_null()!) {
+        return null;
+      } else {
+        Output v = mem::new(Output.inner);
+        *v = deserialize{Output.inner}(deserializer)!;
+        return v;
+      }
 
     $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer)):
       value.deserialize(deserializer)!;
@@ -73,21 +77,13 @@ fn Output? deserialize(Deserializer deserializer) <Output> {
       }
 
     $case $defined(value.len) &&& $defined(value[0]):
-      $typefrom(Output.inner)[] elements = mem::new_array(Output.inner, 10);
+      List{Output.inner} elements;
       deserializer.slice_start()!;
-      int i = 0;
       while(deserializer.has_next_slice_item()!) {
-        elements[i] = deserialize{Output.inner}(deserializer)!;
-        i++;
-        if (i >= elements.len) {
-          $typefrom(Output.inner)[] new_elements = mem::new_array(Output.inner, elements.len * 2);
-          new_elements[..elements.len - 1] = elements[..];
-          mem::free(elements);
-          elements = new_elements;
-        }
+        elements.push(deserialize{Output.inner}(deserializer)!);
       }
       deserializer.slice_end()!;
-      return elements;
+      return elements.to_array(mem);
 
     $default:
       $error "The value cannot be deserialize: " +++ $typeof(value).nameof;
