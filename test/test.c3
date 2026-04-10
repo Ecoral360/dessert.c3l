@@ -74,3 +74,34 @@ fn void t() @test {
 
   // io::printfn("Person named %s with a %s named %s", p.name, p.pets[0].specie, p.pets[0].name);
 }
+
+
+const String TEST_DATA = `{
+  "name": "bash",
+  "arguments": "{\"command\": \"python --version\"}"
+}`;
+
+struct Function
+{
+    String name;
+    String arguments;
+}
+
+fn void? Function.serialize(&self, Serializer serializer) =>
+  ser::impl_serialize(self, serializer);
+
+fn void? Function.deserialize(&self, Deserializer deserializer) =>
+  des::impl_deserialize(self, deserializer);
+
+fn void test_escape() @test {
+  Function fun = {
+    .name = "bash",
+    .arguments = "{\"command\": \"python --version\"}",
+  };
+
+  JsonSerializer s = json::serializer();
+  JsonValue json = ser::serialize(&s, fun)!!;
+  json.print()!!;
+  io::printfn("\njson => %s", json.to_string()!!);
+
+}

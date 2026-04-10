@@ -102,7 +102,7 @@ fn String? JsonValue.to_string(self) {
     case BOOL:
       return string::format(mem, "%s", self.value.b);
     case STRING:
-      return string::format(mem, "\"%s\"", self.value.s);
+      return string::format(mem, "\"%s\"", self.value.s.replace(mem, "\"", "\\\""));
     case ARRAY:
       DString s;
       s.init(mem);
@@ -124,7 +124,7 @@ fn String? JsonValue.to_string(self) {
       
       int i = 0;
       self.value.d.@each_entry(; entry) {
-        s.append(string::format(mem, "\"%s\": ", entry.key));
+        s.append(string::format(mem, "\"%s\": ", entry.key.replace(mem, "\"", "\\\"")));
         s.append(entry.value.to_string()!);
         if (i < d_len - 1) {
           s.append(", ");
@@ -159,7 +159,7 @@ fn String to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priva
     case BOOL:
       return string::format(mem, "%s", self.value.b ? "true" : "false");
     case STRING:
-      return string::format(mem, "\"%s\"", self.value.s);
+      return string::format(mem, "\"%s\"", self.value.s.replace(mem, "\"", "\\\""));
     case ARRAY:
       DString s;
       s.init(mem);
@@ -184,7 +184,7 @@ fn String to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priva
       int i = 0;
       self.value.d.@each_entry(; entry) {
         s.append(inner_pad);
-        s.append(string::format(mem, "\"%s\": ", entry.key));
+        s.append(string::format(mem, "\"%s\": ", entry.key.replace(mem, "\"", "\\\"")));
         s.append(to_pretty_string(entry.value, indent: indent, depth: depth + 1));
         if (i < d_len - 1) s.append(",");
         s.append("\n");
