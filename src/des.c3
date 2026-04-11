@@ -71,7 +71,7 @@ macro deserialize(Deserializer deserializer) <Output> {
     $case ($defined(value.get) &&& $defined(value.get()) &&& 
            ($defined(value.get()!) ||| $defined(value == maybe::value{$typeof(value.value)}(value.value)))):
       if (deserializer.next_null()!) {
-        return {};
+        return (Maybe{$typeof(value.value)}) {};
       } else {
         return maybe::value{$typeof(value.value)}(deserialize{$typeof(value.value)}(deserializer)!);
       }
@@ -139,7 +139,12 @@ macro impl_deserialize(value, Deserializer deserializer) {
 
       deserializer.struct_start()!;
       while(deserializer.has_next_field()!) {
-        String next_key = deserializer.next_field_name()!;
+        String? next_key = deserializer.next_field_name();
+        if (catch next_key) {
+          io::eprintfn("Error deserializing after deserializing: %s", names);
+          next_key!;
+          return;
+        }
         $foreach $member : $typeof(value).inner.membersof:
           var $dessert = $member.has_tagof("dessert:des") ??? $member.tagof("dessert:des") : (Dessert) {};
           $if $typeof($dessert) != Dessert:
@@ -150,7 +155,12 @@ macro impl_deserialize(value, Deserializer deserializer) {
             if (names.contains(next_key)) {
               return DUPLICATED_KEY~;
             }
-            var next_value = deserialize{$member.typeid}(deserializer)!;
+            $typefrom($member.typeid)? next_value = deserialize{$member.typeid}(deserializer);
+            if (catch next_value) {
+              io::eprintfn("Error deserializing key: %s", next_key);
+              next_value!;
+              return;
+            }
             $if !$dessert.skip:
               value.$eval($member.nameof) = next_value;
             $endif

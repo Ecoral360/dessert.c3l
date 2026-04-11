@@ -78,13 +78,15 @@ fn void t() @test {
 
 const String TEST_DATA = `{
   "name": "bash",
-  "arguments": "{\"command\": \"python --version\"}"
+  "arguments": "{\"command\": \"python --version\"}",
+  "x": 505874924095815700
 }`;
 
 struct Function
 {
-    String name;
-    String arguments;
+  String name;
+  String arguments;
+  long x;
 }
 
 fn void? Function.serialize(&self, Serializer serializer) =>
@@ -103,5 +105,8 @@ fn void test_escape() @test {
   JsonValue json = ser::serialize(&s, fun)!!;
   json.print()!!;
   io::printfn("\njson => %s", json.to_string()!!);
+
+  Function f = des::deserialize{Function}(&&json::deserializer(TEST_DATA))!!;
+  io::printfn("\nf => %s", string::from_struct(mem, f));
 
 }

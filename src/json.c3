@@ -302,7 +302,8 @@ struct JsonDeserializer (Deserializer) {
 }
 
 fn void? JsonDeserializer.skip_whitespace(&self) {
-  while (self.input.has_next() && ascii::is_blank((char) self.input.peek()!)) {
+  while (self.input.has_next() && 
+         (ascii::is_blank((char) self.input.peek()!) || '\n' == self.input.peek()!)) {
     (void)self.input.next()!;
   }
 }
@@ -369,7 +370,9 @@ fn void? JsonDeserializer.slice_end(&self) @dynamic {
 
 fn String? JsonDeserializer.next_string(&self) @dynamic {
   self.skip_whitespace()!;
-  if (self.input.next()! != '"') {
+  Char32 next = self.input.next()!;
+  if (next != '"') {
+    io::eprintfn("%c", next);
     return INVALID_STRING~;
   }
   DString val;
