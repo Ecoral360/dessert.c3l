@@ -79,7 +79,9 @@ fn void t() @test {
 const String TEST_DATA = `{
   "name": "bash",
   "arguments": "{\"command\": \"python --version\"}",
-  "x": 505874924095815700
+  "x": 505874924095815700,
+  "oh": true,
+  "wait": null
 }`;
 
 struct Function
@@ -109,4 +111,19 @@ fn void test_escape() @test {
   Function f = des::deserialize{Function}(&&json::deserializer(TEST_DATA))!!;
   io::printfn("\nf => %s", string::from_struct(mem, f));
 
+}
+
+
+
+const String TEST_DATA_2 = `{
+  "name": "bash",
+  "arguments": "{\"command\": \"python --version\"}",
+  "x": 505874924095815.22,
+  "oh": true,
+  "wait": null
+}`;
+
+fn void test_escape2() @test {
+  Object* f = des::deserialize{Object*}(&&json::debug_deserializer(TEST_DATA_2))!!;
+  io::printfn("\nf => %s", string::from_struct(mem, f));
 }

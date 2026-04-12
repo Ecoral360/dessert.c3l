@@ -1,6 +1,7 @@
 module dessert::des;
+import std::collections::object;
 
-faultdef UNSUPPORTED_DATA_TYPE;
+faultdef UNSUPPORTED_DATA_TYPE, UNSUPPORTED_ANY;
 
 fn void? String.deserialize(&self, Deserializer des) @dynamic {
   *self = des.next_string()!;
@@ -92,4 +93,12 @@ fn void? float.deserialize(&self, Deserializer des) @dynamic {
 
 fn void? double.deserialize(&self, Deserializer des) @dynamic {
   *self = des.next_double()!;
+}
+
+fn void? Object.deserialize(&self, Deserializer des) @dynamic {
+  if (&des.next_any) {
+    *self = *des.next_any()!;
+  } else {
+    return UNSUPPORTED_ANY~;
+  }
 }
