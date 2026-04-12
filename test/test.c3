@@ -84,7 +84,7 @@ const String TEST_DATA = `{
   "wait": null
 }`;
 
-struct Function
+struct Function @DessertStruct({ .deny_unknown_fields = true })
 {
   String name;
   String arguments;
@@ -108,9 +108,11 @@ fn void test_escape() @test {
   json.print()!!;
   io::printfn("\njson => %s", json.to_string()!!);
 
-  Function f = des::deserialize{Function}(&&json::deserializer(TEST_DATA))!!;
-  io::printfn("\nf => %s", string::from_struct(mem, f));
-
+  Function? f = des::deserialize{Function}(&&json::deserializer(TEST_DATA));
+  // should fail because deny_unknown_fields is true
+  if (try f) {
+    assert(false);
+  }
 }
 
 

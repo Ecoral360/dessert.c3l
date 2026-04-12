@@ -19,6 +19,8 @@ The library is built around two core interfaces:
 - Support for slice/array/List fields
 - Enum serialization (as name, ordinal, or associated field)
 - Skip specific fields during serialization
+- Skip empty fields (slices, `Maybe`, pointers) via `skip_if_empty`
+- Conditionally skip fields via `skip_serializing_<field>` methods
 - Rename fields for the output
 - Validate field values before serialization
 - Support for all primitive types: `bool`, `char`, `ichar`, `short`, `int`, `long`, `int128`, `ushort`, `uint`, `ulong`, `uint128`, `float`, `double`, `String`, `ZString`
@@ -31,6 +33,9 @@ The library is built around two core interfaces:
 - Enum deserialization (as name, ordinal, or associated field)
 - Field renaming support (different name in the format and in C3)
 - Duplicate key detection
+- Unknown field skipping (or rejection via `deny_unknown_fields`)
+- Deserialize arbitrary data into `Object*`
+- Descriptive error messages on deserialization failure
 - Support for all primitive types: `bool`, `char`, `ichar`, `short`, `int`, `long`, `int128`, `ushort`, `uint`, `ulong`, `uint128`, `float`, `double`, `String`, `ZString`
 
 ### JSON
@@ -61,12 +66,28 @@ struct Person {
 
 **Field attribute options (`Dessert` struct):**
 
-| Option      | Type       | Description                                                              |
-|-------------|------------|--------------------------------------------------------------------------|
-| `.skip`     | `bool`     | Skip this field during serialization/deserialization                    |
-| `.rename`   | `String`   | Use a different name for this field in the output/input                 |
-| `.aliases`  | `String[]` | Alternative names to accept during deserialization (not yet implemented) |
-| `.validator`| `String`   | Call a validation method before serialization                           |
+| Option           | Type       | Description                                                                       |
+|------------------|------------|-----------------------------------------------------------------------------------|
+| `.skip`          | `bool`     | Skip this field during serialization/deserialization                              |
+| `.skip_if_empty` | `bool`     | Skip this field during serialization if it is empty (null pointer, empty slice, or unset `Maybe`) |
+| `.rename`        | `String`   | Use a different name for this field in the output/input                           |
+| `.aliases`       | `String[]` | Alternative names to accept during deserialization (not yet implemented)          |
+| `.validator`     | `String`   | Call a validation method before serialization                                     |
+
+**Conditional skip methods:**
+
+If a struct has a method named `skip_serializing_<field>` that returns `bool`, dessert will call it before serializing that field and skip the field if it returns `true`:
+
+```c3
+struct Person {
+    int age;
+    String name;
+}
+
+fn bool Person.skip_serializing_age(&self) {
+    return self.age == 0; // don't serialize age when it's 0
+}
+```
 
 **Enum attributes:**
 
@@ -92,6 +113,29 @@ enum Color @DessertEnum({ .as = NAME }) {
 |-----------|---------------|--------------------------------------------------------------------------------------|
 | `.as`     | `DessertEnum` | How to represent the enum: `NAME` (default), `ORDINAL`, or `FIELD`                  |
 | `.field`  | `String`      | Name of the associated field to use when `.as = FIELD`                              |
+
+**Struct attributes:**
+
+Use `@DessertStruct` (or `@DessertStructSer` / `@DessertStructDes`) on a struct type to control struct-level behavior:
+
+```c3
+struct Function @DessertStruct({ .deny_unknown_fields = true }) {
+    String name;
+    String arguments;
+}
+```
+
+| Attribute            | Description                                                        |
+|----------------------|--------------------------------------------------------------------|
+| `@DessertStruct`     | Apply struct config to both serialization and deserialization      |
+| `@DessertStructSer`  | Apply struct config to serialization only                          |
+| `@DessertStructDes`  | Apply struct config to deserialization only                        |
+
+**Struct attribute options (`DessertStructConfig` struct):**
+
+| Option                  | Type   | Description                                                                         |
+|-------------------------|--------|-------------------------------------------------------------------------------------|
+| `.deny_unknown_fields`  | `bool` | Return `UNKNOWN_FIELD` fault if an unrecognized field is encountered during deserialization (default: skip unknown fields silently) |
 
 ## Installation
 
@@ -255,6 +299,8 @@ interface Deserializer {
   fn bool? next_bool();
   fn bool? next_null();
 
+  fn Object*? next_any() @optional;  // deserialize any value as Object*
+
   fn char? next_char();
   fn ichar? next_ichar() @optional;    // falls back to next_long
 
@@ -308,6 +354,7 @@ Dessert uses C3's fault system for error handling:
 | `UNSUPPORTED_DATA_TYPE`  | `ser` / `des`  | Type has no supported encoding (e.g. `int128`)   |
 | `DUPLICATED_KEY`         | `des`          | Duplicate key found during deserialization       |
 | `INVALID_ENUM_VALUE`     | `des`          | Enum name not found during deserialization       |
+| `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
 | `INVALID_JSON_TYPE`      | `json`         | Invalid JSON structure                           |
 | `INVALID_OBJECT`         | `json`         | Expected JSON object                             |
 | `INVALID_FIELD`          | `json`         | Invalid field format                             |
@@ -333,11 +380,16 @@ Dessert uses C3's fault system for error handling:
 - [x] Serialize struct fields
 - [x] Serialize enum fields (as name, ordinal, or associated field)
 - [x] Skip field
+- [x] Skip field if empty (`skip_if_empty`)
+- [x] Conditionally skip field via `skip_serializing_<field>` method
 - [x] Rename field
 - [x] Validate field
 - [x] Deserialize from JSON
 - [x] Deserialize enum fields (as name, ordinal, or associated field)
 - [x] Full primitive type support (all integer, float, string variants)
+- [x] Skip unknown fields during deserialization (default)
+- [x] Deny unknown fields via `@DessertStruct({ .deny_unknown_fields = true })`
+- [x] Deserialize arbitrary JSON into `Object*`
 - [ ] Serialize union fields
 - [ ] Field aliases during deserialization
 - [ ] Default values for missing fields
