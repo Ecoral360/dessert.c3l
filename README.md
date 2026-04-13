@@ -42,6 +42,10 @@ The library is built around two core interfaces:
 
 The `dessert::json` module provides a complete JSON serializer and deserializer.
 
+### CSV
+
+The `dessert::csv` module provides a CSV serializer for converting slices of structs into CSV format. Only serialization is supported for now (no CSV deserializer).
+
 ### Attributes
 
 Use the `@Dessert` attribute to customize serialization/deserialization behavior:
@@ -180,7 +184,26 @@ JsonSerializer s = json::serializer();
 JsonValue? json = ser::serialize(&s, sharpie);
 ```
 
-### 3. Deserialize from JSON String
+### 3. Serialize a Slice to CSV
+
+```c3
+Animal[] animals = {
+    { .name = "Sharpie", .specie = "Cat" },
+    { .name = "Rex",     .specie = "Dog" },
+};
+CSVSerializer s = csv::serializer();
+CSVDocument doc = ser::serialize(&s, animals)!;
+io::printn(doc.to_string());
+```
+
+Output:
+```
+"name","specie"
+"Sharpie","Cat"
+"Rex","Dog"
+```
+
+### 4. Deserialize from JSON String
 
 ```c3
 String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
@@ -194,6 +217,7 @@ module myapp;
 import std;
 import dessert;
 import json;
+import csv;
 
 struct Animal {
   String name;
@@ -355,6 +379,7 @@ Dessert uses C3's fault system for error handling:
 | `DUPLICATED_KEY`         | `des`          | Duplicate key found during deserialization       |
 | `INVALID_ENUM_VALUE`     | `des`          | Enum name not found during deserialization       |
 | `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
+| `INVALID_CSV_TYPE`       | `dessert::csv` | Unsupported value type during CSV serialization  |
 | `INVALID_JSON_TYPE`      | `json`         | Invalid JSON structure                           |
 | `INVALID_OBJECT`         | `json`         | Expected JSON object                             |
 | `INVALID_FIELD`          | `json`         | Invalid field format                             |
@@ -374,6 +399,7 @@ Dessert uses C3's fault system for error handling:
 ## Roadmap
 
 - [x] Serialize to JSON
+- [x] Serialize to CSV (slices of structs)
 - [x] Recursive struct serialization
 - [x] Serialize Maybe fields
 - [x] Serialize slice fields

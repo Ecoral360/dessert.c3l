@@ -143,7 +143,7 @@ fn void test_csv() @test {
   };
 
   CSVSerializer s_csv = csv::serializer();
-  CSVDocument csv = ser::serialize(&s_csv, meteos[..])!!;
+  CSVDocument csv = ser::serialize(&s_csv, meteos)!!;
 
   io::printfn("%s", csv.to_string());
 }
