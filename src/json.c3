@@ -260,7 +260,7 @@ fn void? JsonSerializer.struct_start(&self) @dynamic {
 
 fn void? JsonSerializer.struct_end(&self) @dynamic {}
 
-fn void? JsonSerializer.serialize_slice_start(&self) @dynamic {}
+fn void? JsonSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
 fn void? JsonSerializer.serialize_slice_end(&self, ulong len) @dynamic {
   List{JsonValue} l;
   l.init(mem);
@@ -274,7 +274,7 @@ fn void? JsonSerializer.serialize_field_start(&self, String name) @dynamic {
   self.output.push({.kind = STRING, .value = {.s = name}});
 }
 
-fn void? JsonSerializer.serialize_field_end(&self) @dynamic {
+fn void? JsonSerializer.serialize_field_end(&self, String name) @dynamic {
   JsonValue value = self.output.pop()!;
   JsonValue key = self.output.pop()!;
   JsonValue obj = self.output.pop()!;
@@ -380,7 +380,7 @@ fn void? JsonDeserializer.slice_start(&self) @dynamic {
 }
 fn bool? JsonDeserializer.has_next_slice_item(&self) @dynamic {
   self.skip_whitespace()!;
-  Char32 next =self.input.peek()!;
+  Char32 next = self.input.peek()!;
   if (next != ']') {
     if (next == ',') self.next()!;
     return true;

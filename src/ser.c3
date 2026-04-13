@@ -33,11 +33,11 @@ interface Serializer {
 
   fn void? serialize_null();
 
-  fn void? serialize_slice_start();
+  fn void? serialize_slice_start(ulong len);
   fn void? serialize_slice_end(ulong len);
 
   fn void? serialize_field_start(String name);
-  fn void? serialize_field_end();
+  fn void? serialize_field_end(String name);
 
   fn void? struct_start();
   fn void? struct_end();
@@ -95,7 +95,9 @@ macro impl_serialize(s, Serializer serializer) {
                   $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
                 )!;
                 serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
-                serializer.serialize_field_end()!;
+                serializer.serialize_field_end(
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                )!;
               }
 
             $case $defined(s.$eval("skip_serializing_" +++ $member.nameof)()) 
@@ -106,7 +108,9 @@ macro impl_serialize(s, Serializer serializer) {
                   $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
                 )!;
                 serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
-                serializer.serialize_field_end()!;
+                serializer.serialize_field_end(
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                )!;
               }
 
             $default:
@@ -114,7 +118,9 @@ macro impl_serialize(s, Serializer serializer) {
                 $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
               )!;
               serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
-              serializer.serialize_field_end()!;
+              serializer.serialize_field_end(
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+              )!;
           $endswitch
         $endif
       $endforeach
@@ -158,14 +164,14 @@ macro serialize_value(serializer, value, $config) {
       }
 
     $case $defined(value.len) &&& $defined(value[0]) &&& $defined(value.len()):
-      serializer.serialize_slice_start()!;
+      serializer.serialize_slice_start(value.len())!;
       foreach (el: value) {
         el.serialize(serializer)!;
       }
       serializer.serialize_slice_end(value.len())!;
 
     $case $defined(value.len) &&& $defined(value[0]):
-      serializer.serialize_slice_start()!;
+      serializer.serialize_slice_start(value.len)!;
       foreach (el: value) {
         el.serialize(serializer)!;
       }

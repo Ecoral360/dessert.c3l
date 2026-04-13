@@ -2,6 +2,7 @@ module test;
 import std;
 import dessert;
 import json;
+import csv;
 
 struct Animal {
   String name;
@@ -113,8 +114,39 @@ fn void test_escape() @test {
   if (try f) {
     assert(false);
   }
+
 }
 
+
+struct Meteo {
+  String date;
+  double temperature;
+  double pressure;
+  String locatisation;
+}
+
+fn void? Meteo.serialize(&self, Serializer serializer) =>
+  ser::impl_serialize(self, serializer);
+
+fn void test_csv() @test {
+  Meteo[10] meteos = {
+    { .date = "2024-01-01", .temperature = -3.2, .pressure = 1013.5, .locatisation = "Paris" },
+    { .date = "2024-01-02", .temperature =  1.5, .pressure = 1008.2, .locatisation = "Lyon" },
+    { .date = "2024-01-03", .temperature =  5.8, .pressure = 1005.7, .locatisation = "Marseille" },
+    { .date = "2024-01-04", .temperature = 12.3, .pressure = 1020.1, .locatisation = "Bordeaux" },
+    { .date = "2024-01-05", .temperature =  8.0, .pressure = 1017.4, .locatisation = "Toulouse" },
+    { .date = "2024-01-06", .temperature = -1.1, .pressure = 1002.9, .locatisation = "Lille" },
+    { .date = "2024-01-07", .temperature =  3.4, .pressure = 1011.3, .locatisation = "Nantes" },
+    { .date = "2024-01-08", .temperature = 15.6, .pressure = 1018.8, .locatisation = "Nice" },
+    { .date = "2024-01-09", .temperature =  7.2, .pressure = 1009.6, .locatisation = "Strasbourg" },
+    { .date = "2024-01-10", .temperature =  9.9, .pressure = 1014.0, .locatisation = "Rennes" },
+  };
+
+  CSVSerializer s_csv = csv::serializer();
+  CSVDocument csv = ser::serialize(&s_csv, meteos[..])!!;
+
+  io::printfn("%s", csv.to_string());
+}
 
 
 const String TEST_DATA_2 = `{
