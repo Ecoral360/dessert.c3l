@@ -17,7 +17,10 @@ fn void? bool.serialize(&self, Serializer ser) @dynamic {
 }
 
 fn void? char.serialize(&self, Serializer ser) @dynamic {
-  return ser.serialize_char(*self);
+  if (&ser.serialize_char) {
+    return ser.serialize_char(*self);
+  }
+  return ser.serialize_string({*self});
 }
 
 /// Signed numbers

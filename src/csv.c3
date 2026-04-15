@@ -113,10 +113,6 @@ fn void? CSVSerializer.serialize_bool(&self, bool b) @dynamic {
   self.output.push({ .kind = CSVValueKind.BOOL, .value = { .b = b } });
 }
 
-fn void? CSVSerializer.serialize_char(&self, char c) @dynamic {
-  self.output.push({ .kind = CSVValueKind.STRING, .value = { .s = {c} } });
-}
-
 fn void? CSVSerializer.serialize_long(&self, long i) @dynamic {
   self.output.push({ .kind = CSVValueKind.INT, .value = { .i = i } });
 }
@@ -135,7 +131,6 @@ fn void? CSVSerializer.serialize_string(&self, String s) @dynamic {
 
 fn void? CSVSerializer.struct_start(&self) @dynamic {}
 fn void? CSVSerializer.struct_end(&self) @dynamic {}
-
 fn void? CSVSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
 fn void? CSVSerializer.serialize_slice_end(&self, ulong len) @dynamic {}
 

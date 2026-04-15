@@ -273,10 +273,10 @@ Required methods must be implemented. Optional methods (`@optional`) fall back t
 interface Serializer {
   fn void? serialize_bool(bool b);
 
-  fn void? serialize_char(char c);
-  fn void? serialize_ichar(ichar c) @optional;   // falls back to serialize_long
+  fn void? serialize_char(char c) @optional;      // falls back to serialize_string({c}) 
+  fn void? serialize_ichar(ichar c) @optional;    // falls back to serialize_long
 
-  fn void? serialize_short(short s) @optional;   // falls back to serialize_long
+  fn void? serialize_short(short s) @optional;    // falls back to serialize_long
   fn void? serialize_int(int i) @optional;        // falls back to serialize_long
   fn void? serialize_long(long l);
   fn void? serialize_int128(int128 i) @optional;  // returns UNSUPPORTED_DATA_TYPE if absent
@@ -289,7 +289,7 @@ interface Serializer {
   fn void? serialize_string(String s);
   fn void? serialize_zstring(ZString s) @optional; // falls back to serialize_string
 
-  fn void? serialize_float(float f) @optional;    // falls back to serialize_double
+  fn void? serialize_float(float f) @optional;     // falls back to serialize_double
   fn void? serialize_double(double d);
 
   fn void? serialize_null();

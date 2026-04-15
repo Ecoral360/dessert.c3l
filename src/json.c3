@@ -232,10 +232,6 @@ fn void? JsonSerializer.serialize_bool(&self, bool b) @dynamic {
   self.output.push({ .kind = JsonValueKind.BOOL, .value = { .b = b } });
 }
 
-fn void? JsonSerializer.serialize_char(&self, char c) @dynamic {
-  self.output.push({ .kind = JsonValueKind.STRING, .value = { .s = {c} } });
-}
-
 fn void? JsonSerializer.serialize_long(&self, long i) @dynamic {
   self.output.push({ .kind = JsonValueKind.INT, .value = { .i = i } });
 }

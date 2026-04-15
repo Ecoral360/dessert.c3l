@@ -9,7 +9,7 @@ import std::collections::maybe;
 interface Serializer {
   fn void? serialize_bool(bool b);
 
-  fn void? serialize_char(char c);
+  fn void? serialize_char(char c) @optional;
   fn void? serialize_ichar(ichar c) @optional;
 
   fn void? serialize_short(short s) @optional;
