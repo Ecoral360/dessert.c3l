@@ -325,7 +325,7 @@ interface Deserializer {
 
   fn Object*? next_any() @optional;  // deserialize any value as Object*
 
-  fn char? next_char();
+  fn char? next_char() @optional;   // falls back to next_string()[0]
   fn ichar? next_ichar() @optional;    // falls back to next_long
 
   fn short? next_short() @optional;   // falls back to next_long

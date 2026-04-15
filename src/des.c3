@@ -20,7 +20,7 @@ interface Deserializer {
 
   fn Object*? next_any() @optional;
 
-  fn char? next_char();
+  fn char? next_char() @optional;
   fn ichar? next_ichar() @optional;
 
   fn short? next_short() @optional;

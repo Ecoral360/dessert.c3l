@@ -8,7 +8,11 @@ fn void? String.deserialize(&self, Deserializer des) @dynamic {
 }
 
 fn void? char.deserialize(&self, Deserializer des) @dynamic {
-  *self = des.next_char()!;
+  if (&des.next_char) {
+    *self = des.next_char()!;
+  } else {
+    *self = des.next_string()[0]!;
+  }
 }
 
 fn void? bool.deserialize(&self, Deserializer des) @dynamic {
