@@ -7,40 +7,37 @@ import std::core::types;
 import std::collections::maybe;
 
 interface Serializer {
+  fn void? struct_start(String name);
+  fn void? serialize_field_start(String name);
+  fn void? serialize_field_end(String name);
+  fn void? struct_end(String name);
+
+  fn void? serialize_slice_start(ulong len);
+  fn void? serialize_slice_end(ulong len);
+
+  fn void? serialize_null();
   fn void? serialize_bool(bool b);
+  fn void? serialize_long(long l);
+  fn void? serialize_string(String s);
+  fn void? serialize_double(double d);
 
   fn void? serialize_char(char c) @optional;
   fn void? serialize_ichar(ichar c) @optional;
 
   fn void? serialize_short(short s) @optional;
   fn void? serialize_int(int i) @optional;
-  fn void? serialize_long(long l);
   fn void? serialize_int128(int128 i) @optional;
 
   fn void? serialize_uint(uint i) @optional;
   fn void? serialize_ushort(ushort s) @optional;
-  fn void? serialize_ulong(ulong l);
+  fn void? serialize_ulong(ulong l) @optional;
   fn void? serialize_uint128(uint128 i) @optional;
 
-  fn void? serialize_string(String s);
   fn void? serialize_zstring(ZString s) @optional;
 
-  // fn void? serialize_float16(float16 f) @optional;
   fn void? serialize_float(float f) @optional;
-  fn void? serialize_double(double d);
-
-  // fn void? serialize_float128(float128 f) @optional;
-
-  fn void? serialize_null();
-
-  fn void? serialize_slice_start(ulong len);
-  fn void? serialize_slice_end(ulong len);
-
-  fn void? serialize_field_start(String name);
-  fn void? serialize_field_end(String name);
-
-  fn void? struct_start();
-  fn void? struct_end();
+  // fn void? serialize_float16(float16 f) @optional @if($defined(float16));
+  // fn void? serialize_float128(float128 f) @optional @if($defined(float128));
 }
 
 faultdef VALIDATOR_ERROR;
@@ -75,7 +72,7 @@ macro impl_serialize(s, Serializer serializer) {
       impl_serialize_enum(s, serializer)!;
 
     $case $typeof(s).inner.kindof == STRUCT:
-      serializer.struct_start()!;
+      serializer.struct_start($typeof(s).inner.nameof)!;
       $foreach $member : $typeof(s).inner.membersof:
         var $dessert = $member.has_tagof("dessert:ser") ??? $member.tagof("dessert:ser") : (Dessert) {};
         $if $typeof($dessert) != Dessert:
@@ -124,7 +121,7 @@ macro impl_serialize(s, Serializer serializer) {
           $endswitch
         $endif
       $endforeach
-      serializer.struct_end()!;
+      serializer.struct_end($typeof(s).inner.nameof)!;
   $endswitch
 }
 

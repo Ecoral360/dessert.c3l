@@ -236,10 +236,6 @@ fn void? JsonSerializer.serialize_long(&self, long i) @dynamic {
   self.output.push({ .kind = JsonValueKind.INT, .value = { .i = i } });
 }
 
-fn void? JsonSerializer.serialize_ulong(&self, ulong i) @dynamic {
-  self.output.push({ .kind = JsonValueKind.INT, .value = { .i = (long) i } });
-}
-
 fn void? JsonSerializer.serialize_double(&self, double f) @dynamic {
   self.output.push({ .kind = JsonValueKind.FLOAT, .value = { .f = f } });
 }
@@ -248,13 +244,13 @@ fn void? JsonSerializer.serialize_string(&self, String s) @dynamic {
   self.output.push({ .kind = JsonValueKind.STRING, .value = { .s = s } });
 }
 
-fn void? JsonSerializer.struct_start(&self) @dynamic {
+fn void? JsonSerializer.struct_start(&self, String name) @dynamic {
   LinkedHashMap{String, JsonValue} d;
   d.init(mem);
   self.output.push({ .kind = JsonValueKind.DICT, .value = { .d = d } });
 }
 
-fn void? JsonSerializer.struct_end(&self) @dynamic {}
+fn void? JsonSerializer.struct_end(&self, String name) @dynamic {}
 
 fn void? JsonSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
 fn void? JsonSerializer.serialize_slice_end(&self, ulong len) @dynamic {
@@ -334,7 +330,7 @@ fn JsonDeserializer{true}? debug_deserializer(String input) {
   return { .input = { .utf8 = input } };
 }
 
-fn void? JsonDeserializer.struct_start(&self) @dynamic {
+fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != '{') {
     return INVALID_OBJECT~;
@@ -361,7 +357,7 @@ fn String? JsonDeserializer.next_field_name(&self) @dynamic {
   return field_name;
 }
 
-fn void? JsonDeserializer.struct_end(&self) @dynamic {
+fn void? JsonDeserializer.struct_end(&self, String name) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != '}') {
     return INVALID_OBJECT~;
@@ -411,12 +407,12 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
 
     case next == '{':
       Object* o = object::new_obj(mem);
-      self.struct_start()!;
+      self.struct_start("")!;
       while(self.has_next_field()!) {
         String next_key = self.next_field_name()!;
         o.set(next_key, self.next_any())!;
       }
-      self.struct_end()!;
+      self.struct_end("")!;
       return o;
 
     case next == '[':
@@ -559,9 +555,6 @@ fn char? JsonDeserializer.next_char(&self) @dynamic {
 
 fn long? JsonDeserializer.next_long(&self) @dynamic {
   return (long) self.next_double()!;
-}
-fn ulong? JsonDeserializer.next_ulong(&self) @dynamic {
-  return (ulong) self.next_double()!;
 }
 
 fn bool? JsonDeserializer.next_bool(&self) @dynamic {

@@ -60,20 +60,28 @@ fn void? int128.deserialize(&self, Deserializer des) @dynamic {
 fn void? ushort.deserialize(&self, Deserializer des) @dynamic {
   if (&des.next_ushort) {
     *self = des.next_ushort()!;
-  } else {
+  } else if (&des.next_ulong) {
     *self = (ushort) des.next_ulong()!;
+  } else {
+    *self = (ushort) des.next_long()!;
   }
 }
 
 fn void? uint.deserialize(&self, Deserializer des) @dynamic {
   if (&des.next_uint) {
     *self = des.next_uint()!;
-  } else {
+  } else if (&des.next_ulong) {
     *self = (uint) des.next_ulong()!;
+  } else {
+    *self = (uint) des.next_long()!;
   }
 }
 fn void? ulong.deserialize(&self, Deserializer des) @dynamic {
-  *self = des.next_ulong()!;
+  if (&des.next_ulong) {
+    *self = des.next_ulong()!;
+  } else {
+    *self = (ulong) des.next_long()!;
+  }
 }
 
 fn void? uint128.deserialize(&self, Deserializer des) @dynamic {

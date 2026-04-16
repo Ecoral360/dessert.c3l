@@ -110,11 +110,12 @@ fn void test_escape() @test {
   io::printfn("\njson => %s", json.to_string()!!);
 
   Function? f = des::deserialize{Function}(&&json::deserializer(TEST_DATA));
-  // should fail because deny_unknown_fields is true
-  if (try f) {
+  if (catch err = f) {
+    assert(err == des::UNKNOWN_FIELD);
+  } else {
+    // should have failed because deny_unknown_fields is true
     assert(false);
   }
-
 }
 
 

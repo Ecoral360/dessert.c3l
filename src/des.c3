@@ -6,17 +6,26 @@ import std::io;
 
 
 interface Deserializer {
-  fn void? struct_start();
+  fn void? struct_start(String name);
   fn bool? has_next_field();
   fn String? next_field_name();
-  fn void? struct_end();
+  fn void? struct_end(String name);
 
   fn void? slice_start();
   fn bool? has_next_slice_item();
   fn void? slice_end();
 
-  fn bool? next_bool();
+  <*
+    Returns :
+    `true` if the next element is a null value and consume it. 
+    `false` if the next element is not a null value and ***must not*** consume it.
+  *>
   fn bool? next_null();
+
+  fn bool? next_bool();
+  fn long? next_long();
+  fn String? next_string();
+  fn double? next_double();
 
   fn Object*? next_any() @optional;
 
@@ -25,19 +34,16 @@ interface Deserializer {
 
   fn short? next_short() @optional;
   fn int? next_int() @optional;
-  fn long? next_long();
   fn int128? next_int128() @optional;
 
-  fn uint? next_uint() @optional;
   fn ushort? next_ushort() @optional;
-  fn ulong? next_ulong();
+  fn uint? next_uint() @optional;
+  fn ulong? next_ulong() @optional;
   fn uint128? next_uint128() @optional;
 
-  fn String? next_string();
   fn ZString? next_zstring() @optional;
 
   fn float? next_float() @optional;
-  fn double? next_double();
 }
 
 faultdef VALIDATOR_ERROR;
@@ -142,7 +148,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
       names.init(mem);
       defer names.free();
 
-      deserializer.struct_start()!;
+      deserializer.struct_start($type.nameof)!;
       while(deserializer.has_next_field()!) {
         String? next_key = deserializer.next_field_name();
         if (catch next_key) {
@@ -182,6 +188,6 @@ macro impl_deserialize(value, Deserializer deserializer) {
           (void) deserialize{Object*}(deserializer)!;
         $endif
       }
-      deserializer.struct_end()!;
+      deserializer.struct_end($type.nameof)!;
   $endswitch
 }

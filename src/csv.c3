@@ -129,8 +129,8 @@ fn void? CSVSerializer.serialize_string(&self, String s) @dynamic {
   self.output.push({ .kind = CSVValueKind.STRING, .value = { .s = s } });
 }
 
-fn void? CSVSerializer.struct_start(&self) @dynamic {}
-fn void? CSVSerializer.struct_end(&self) @dynamic {}
+fn void? CSVSerializer.struct_start(&self, String name) @dynamic {}
+fn void? CSVSerializer.struct_end(&self, String name) @dynamic {}
 fn void? CSVSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
 fn void? CSVSerializer.serialize_slice_end(&self, ulong len) @dynamic {}
 
