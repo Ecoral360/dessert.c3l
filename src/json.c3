@@ -291,26 +291,24 @@ faultdef
   INVALID_BOOLEAN,
   INVALID_NULL;
 
-<*
-  @require $typeof(DEBUG) == bool
-*>
-struct JsonDeserializer(Deserializer) <DEBUG> {
+struct JsonDeserializer(Deserializer) {
   // JsonValue input;
   StringIterator input;
   int col;
   int line;
+  bool is_debug;
 }
 
-fn Char32? JsonDeserializer{DEBUG}.next(&self) <DEBUG> @inline {
+fn Char32? JsonDeserializer.next(&self) @inline {
   Char32 c = self.input.next()!;
-  $if DEBUG:
+  if (self.is_debug) {
     if (c == '\n') {
       self.line += 1;
       self.col = 0;
     } else {
       self.col += 1;
     }
-  $endif
+  }
   return c;
 }
 
@@ -322,12 +320,12 @@ fn void? JsonDeserializer.skip_whitespace(&self) {
   }
 }
 
-fn JsonDeserializer{false}? deserializer(String input) {
+fn JsonDeserializer? deserializer(String input) {
   return { .input = { .utf8 = input } };
 }
 
-fn JsonDeserializer{true}? debug_deserializer(String input) {
-  return { .input = { .utf8 = input } };
+fn JsonDeserializer? debug_deserializer(String input) {
+  return { .input = { .utf8 = input }, .is_debug = true };
 }
 
 fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
@@ -386,7 +384,7 @@ fn void? JsonDeserializer.slice_end(&self) @dynamic {
   }
 }
 
-fn void JsonDeserializer{true}.print_error(&self, String message) {
+fn void JsonDeserializer.print_error(&self, String message) {
   io::eprintfn("At %d:%d: %s", self.line, self.col, message);
 }
 
@@ -435,13 +433,13 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   return INVALID_OBJECT~;
 }
 
-fn String? JsonDeserializer{DEBUG}.next_string(&self) <DEBUG> @dynamic {
+fn String? JsonDeserializer.next_string(&self) @dynamic {
   self.skip_whitespace()!;
   Char32 next = self.next()!;
   if (next != '"') {
-    $if DEBUG:
+    if (self.is_debug) {
       self.print_error(string::tformat("Expected \", found %c", next));
-    $endif
+    }
     return INVALID_STRING~;
   }
   DString val;

@@ -92,7 +92,7 @@ macro deserialize(Deserializer deserializer) <Output> {
         elements.push(deserialize{Output.inner}(deserializer)!);
       }
       deserializer.slice_end()!;
-      return elements.to_array(mem);
+      return elements.to_array(tmem);
 
     $default:
       $error "The value cannot be deserialize: " +++ $typeof(value).nameof;
@@ -145,8 +145,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
       var $type = $typeof(value).inner;
       var $config = $type.has_tagof("dessert:des:struct") ??? $type.tagof("dessert:des:struct") : (DessertStructConfig) {};
       List{String} names;
-      names.init(mem);
-      defer names.free();
+      names.tinit();
 
       deserializer.struct_start($type.nameof)!;
       while(deserializer.has_next_field()!) {
