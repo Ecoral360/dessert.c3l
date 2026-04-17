@@ -213,11 +213,10 @@ Animal? animal = des::deserialize{Animal}(&&json::deserializer(json_str));
 ## Complete Example
 
 ```c3
-module myapp;
+module example;
 import std;
 import dessert;
 import json;
-import csv;
 
 struct Animal {
   String name;
@@ -250,14 +249,22 @@ fn int main(String[] args) {
   connor.pets = { sharpie };
 
   JsonSerializer s = json::serializer();
-  ser::serialize(&s, connor)!;
-  JsonValue? json = s.result();
+  JsonValue? json = ser::serialize(&s, connor);
+  if (catch json) {
+    io::printn("Error serializing");
+    return -1;
+  }
   
   json.print()!!;
+  io::printn();
   
-  Person? p = des::deserialize{Person}(&&json::deserializer(json.to_string()!));
+  Person? p = des::deserialize{Person}(&&json::deserializer(json.to_string()));
+  if (catch p) {
+    io::printn("Error deserializing");
+    return -1;
+  }
 
-  io::printfn("Person named %s with cat named %s", p.name, p.pets[0].name);
+  io::printfn("Person named %s with a %s named %s", p.name, p.pets[0].specie, p.pets[0].name);
   
   return 0;
 }
