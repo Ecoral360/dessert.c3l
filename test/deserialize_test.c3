@@ -33,19 +33,19 @@ fn void? DWithArray.deserialize(&self, Deserializer deserializer) => des::impl_d
 // skip=true on des: JSON field is consumed but not assigned to the struct field
 struct DWithSkipDes {
   String kept;
-  String dropped @DessertDes({ .skip = true });
+  String dropped @DFieldDes({ .skip = true });
 }
 fn void? DWithSkipDes.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // rename: JSON key "alias" maps to field "original"
 struct DWithRenameDes {
-  String original @DessertDes({ .rename = "alias" });
-  int    count    @DessertDes({ .rename = "num" });
+  String original @DFieldDes({ .rename = "alias" });
+  int    count    @DFieldDes({ .rename = "num" });
 }
 fn void? DWithRenameDes.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // deny_unknown_fields: error on unexpected JSON keys
-struct DDenyUnknown @DessertStruct({ .deny_unknown_fields = true }) {
+struct DDenyUnknown @DStruct({ .deny_unknown_fields = true }) {
   String name;
   int    value;
 }
@@ -74,7 +74,7 @@ struct DWithDirection {
 fn void? DWithDirection.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Ordinal enum: deserialize from integer position
-enum DRank @DessertEnum({ .as = DessertEnum.ORDINAL }) {
+enum DRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
@@ -88,7 +88,7 @@ struct DWithRank {
 fn void? DWithRank.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Field enum: deserialize by matching an associated field value
-enum DColor : (String hex) @DessertEnum({ .as = DessertEnum.FIELD, .field = "hex" }) {
+enum DColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },

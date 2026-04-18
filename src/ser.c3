@@ -74,10 +74,7 @@ macro impl_serialize(s, Serializer serializer) {
     $case $typeof(s).inner.kindof == STRUCT:
       serializer.struct_start($typeof(s).inner.nameof)!;
       $foreach $member : $typeof(s).inner.membersof:
-        var $dessert = $member.has_tagof("dessert:ser") ??? $member.tagof("dessert:ser") : (Dessert) {};
-        $if $typeof($dessert) != Dessert:
-          $error("Dessert tag value must be of type Dessert");
-        $endif
+        DessertFieldConfig $dessert = $member.has_tagof("dessert:ser") ??? $member.tagof("dessert:ser") : (DessertFieldConfig) {};
         $if !$dessert.skip:
           $if $dessert.validator.len > 0: 
             if (!s.$eval($dessert.validator)(s.$eval($member.nameof))) {

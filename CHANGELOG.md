@@ -2,6 +2,11 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-04-18
+
+- Renamed `@Dessert`, `@DessertSer`, `@DessertDes`, `@DessertEnum`, `@DessertEnumSer`, `@DessertEnumDes`, `@DessertStruct`, `@DessertStructSer`, `@DessertStructDes` to
+`@DField`, `@DFieldSer`, `@DFieldDes`, `@DEnum`, `@DEnumSer`, `@DEnumDes`, `@DStruct`, `@DStructSer`, `@DStructDes` (old names are still available, but depricated)
+
 ## 2026-04-12
 
 ### Added

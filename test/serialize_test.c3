@@ -32,22 +32,22 @@ fn void? SWithArray.serialize(&self, Serializer serializer) => ser::impl_seriali
 
 struct SSkipField {
   String kept;
-  String secret   @Dessert({ .skip = true });
-  int    internal @Dessert({ .skip = true });
+  String secret   @DField({ .skip = true });
+  int    internal @DField({ .skip = true });
 }
 fn void? SSkipField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 struct SRenamedField {
-  String original @Dessert({ .rename = "alias" });
-  int    count    @Dessert({ .rename = "num" });
+  String original @DField({ .rename = "alias" });
+  int    count    @DField({ .rename = "num" });
 }
 fn void? SRenamedField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 struct SSkipIfEmpty {
   String  always;
-  String  maybe_str @Dessert({ .skip_if_empty = true });
-  SPoint* maybe_ptr @Dessert({ .skip_if_empty = true });
-  SPoint[] maybe_arr @Dessert({ .skip_if_empty = true });
+  String  maybe_str @DField({ .skip_if_empty = true });
+  SPoint* maybe_ptr @DField({ .skip_if_empty = true });
+  SPoint[] maybe_arr @DField({ .skip_if_empty = true });
 }
 fn void? SSkipIfEmpty.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
@@ -68,7 +68,7 @@ enum SDirection {
 fn void? SDirection.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 // Serialize enum variants by ordinal (0, 1, 2, ...)
-enum SRank @DessertEnum({ .as = DessertEnum.ORDINAL }) {
+enum SRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
@@ -76,7 +76,7 @@ enum SRank @DessertEnum({ .as = DessertEnum.ORDINAL }) {
 fn void? SRank.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 // Serialize enum via an associated field value
-enum SColor : (String hex) @DessertEnum({ .as = DessertEnum.FIELD, .field = "hex" }) {
+enum SColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },
@@ -90,7 +90,7 @@ struct SWithMaybe {
 fn void? SWithMaybe.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 struct SWithValidator {
-  String name @Dessert({ .validator = "validate_name" });
+  String name @DField({ .validator = "validate_name" });
 }
 fn bool SWithValidator.validate_name(&self, String name) => name.len > 0;
 fn void? SWithValidator.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);

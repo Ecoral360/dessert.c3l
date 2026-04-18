@@ -48,15 +48,15 @@ The `dessert::csv` module provides a CSV serializer for converting slices of str
 
 ### Attributes
 
-Use the `@Dessert` attribute to customize serialization/deserialization behavior:
+Use the `@DField` attribute to customize serialization/deserialization behavior for struct fields:
 
 ```c3
 struct Person {
     int age;                                  // Serialized as "age"
     String name;                              // Serialized as "name"
-    bool is_cool @Dessert({ .skip = true });  // Skipped during serialization
-    Maybe{Person*} friend @Dessert({ .rename = "my_friend" }); // Renamed to "my_friend"
-    int score @Dessert({ .validator = "validate_score" }); // Validated before serialization
+    bool is_cool @DField({ .skip = true });  // Skipped during serialization
+    Maybe{Person*} friend @DField({ .rename = "my_friend" }); // Renamed to "my_friend"
+    int score @DField({ .validator = "validate_score" }); // Validated before serialization
 }
 ```
 
@@ -64,11 +64,11 @@ struct Person {
 
 | Attribute       | Description                                                                     |
 |-----------------|---------------------------------------------------------------------------------|
-| `@Dessert`      | Apply config to both serialization and deserialization                          |
-| `@DessertSer`   | Apply config to serialization only                                              |
-| `@DessertDes`   | Apply config to deserialization only                                            |
+| `@DField`      | Apply config to both serialization and deserialization                          |
+| `@DFieldSer`   | Apply config to serialization only                                              |
+| `@DFieldDes`   | Apply config to deserialization only                                            |
 
-**Field attribute options (`Dessert` struct):**
+**Field attribute options (`DessertFieldConfig` struct):**
 
 | Option           | Type       | Description                                                                       |
 |------------------|------------|-----------------------------------------------------------------------------------|
@@ -95,10 +95,10 @@ fn bool Person.skip_serializing_age(&self) {
 
 **Enum attributes:**
 
-Use `@DessertEnum` (or `@DessertEnumSer` / `@DessertEnumDes`) on an enum type to control how it is serialized:
+Use `@DEnum` (or `@DEnumSer` / `@DEnumDes`) on an enum type to control how it is serialized:
 
 ```c3
-enum Color @DessertEnum({ .as = NAME }) {
+enum Color @DEnum({ .as = NAME }) {
     RED,
     GREEN,
     BLUE,
@@ -107,9 +107,9 @@ enum Color @DessertEnum({ .as = NAME }) {
 
 | Attribute         | Description                                                    |
 |-------------------|----------------------------------------------------------------|
-| `@DessertEnum`    | Apply enum config to both serialization and deserialization    |
-| `@DessertEnumSer` | Apply enum config to serialization only                        |
-| `@DessertEnumDes` | Apply enum config to deserialization only                      |
+| `@DEnum`    | Apply enum config to both serialization and deserialization    |
+| `@DEnumSer` | Apply enum config to serialization only                        |
+| `@DEnumDes` | Apply enum config to deserialization only                      |
 
 **Enum attribute options (`DessertEnumConfig` struct):**
 
@@ -120,10 +120,10 @@ enum Color @DessertEnum({ .as = NAME }) {
 
 **Struct attributes:**
 
-Use `@DessertStruct` (or `@DessertStructSer` / `@DessertStructDes`) on a struct type to control struct-level behavior:
+Use `@DStruct` (or `@DStructSer` / `@DStructDes`) on a struct type to control struct-level behavior:
 
 ```c3
-struct Function @DessertStruct({ .deny_unknown_fields = true }) {
+struct Function @DStruct({ .deny_unknown_fields = true }) {
     String name;
     String arguments;
 }
@@ -131,9 +131,9 @@ struct Function @DessertStruct({ .deny_unknown_fields = true }) {
 
 | Attribute            | Description                                                        |
 |----------------------|--------------------------------------------------------------------|
-| `@DessertStruct`     | Apply struct config to both serialization and deserialization      |
-| `@DessertStructSer`  | Apply struct config to serialization only                          |
-| `@DessertStructDes`  | Apply struct config to deserialization only                        |
+| `@DStruct`     | Apply struct config to both serialization and deserialization      |
+| `@DStructSer`  | Apply struct config to serialization only                          |
+| `@DStructDes`  | Apply struct config to deserialization only                        |
 
 **Struct attribute options (`DessertStructConfig` struct):**
 
@@ -233,8 +233,8 @@ struct Person {
   int age;
   String name;
   Animal[] pets;
-  Maybe{Person*} friend @Dessert({ .rename = "my_friend" });
-  bool is_cool @Dessert({ .skip = true });
+  Maybe{Person*} friend @DField({ .rename = "my_friend" });
+  bool is_cool @DField({ .skip = true });
 }
 
 fn void? Person.serialize(&self, Serializer serializer) => 
@@ -421,7 +421,7 @@ Dessert uses C3's fault system for error handling:
 - [x] Deserialize enum fields (as name, ordinal, or associated field)
 - [x] Full primitive type support (all integer, float, string variants)
 - [x] Skip unknown fields during deserialization (default)
-- [x] Deny unknown fields via `@DessertStruct({ .deny_unknown_fields = true })`
+- [x] Deny unknown fields via `@DStruct({ .deny_unknown_fields = true })`
 - [x] Deserialize arbitrary JSON into `Object*`
 - [ ] Serialize union fields
 - [ ] Field aliases during deserialization

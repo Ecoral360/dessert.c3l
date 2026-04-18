@@ -156,10 +156,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
           return;
         }
         $foreach $member : $typeof(value).inner.membersof:
-          var $dessert = $member.has_tagof("dessert:des") ??? $member.tagof("dessert:des") : (Dessert) {};
-          $if $typeof($dessert) != Dessert:
-            $error("Dessert tag value must be of type Dessert");
-          $endif
+          DessertFieldConfig $dessert = $member.has_tagof("dessert:des") ??? $member.tagof("dessert:des") : (DessertFieldConfig) {};
           var $name = $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof;
           if ($name == next_key) {
             if (names.contains(next_key)) {

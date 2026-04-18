@@ -31,9 +31,9 @@ fn void? State.deserialize(&self, Deserializer deserializer) =>
 struct Person {
   int age;
   String name;
-  Animal[] pets @Dessert({ .skip_if_empty = true });
-  Person* friend @Dessert({ .rename = "my_friend" });
-  bool is_cool @Dessert({ .skip = true });
+  Animal[] pets @DField({ .skip_if_empty = true });
+  Person* friend @DField({ .rename = "my_friend" });
+  bool is_cool @DField({ .skip = true });
   long a;
   State state;
 }
@@ -85,7 +85,7 @@ const String TEST_DATA = `{
   "wait": null
 }`;
 
-struct Function @DessertStruct({ .deny_unknown_fields = true })
+struct Function @DStruct({ .deny_unknown_fields = true })
 {
   String name;
   String arguments;
