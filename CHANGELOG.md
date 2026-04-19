@@ -2,8 +2,15 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-04-19
+
+- Added `XML` serializer in `dessert::format::xml`
+- Fixed a bug that made muli-dimensional arrays impossible to serialize
+
 ## 2026-04-18
 
+- Moved `dessert::csv` to `dessert::format::csv`
+- Moved `dessert::json` to `dessert::format::json`
 - Renamed `@Dessert`, `@DessertSer`, `@DessertDes`, `@DessertEnum`, `@DessertEnumSer`, `@DessertEnumDes`, `@DessertStruct`, `@DessertStructSer`, `@DessertStructDes` to
 `@DField`, `@DFieldSer`, `@DFieldDes`, `@DEnum`, `@DEnumSer`, `@DEnumDes`, `@DStruct`, `@DStructSer`, `@DStructDes` (old names are still available, but depricated)
 

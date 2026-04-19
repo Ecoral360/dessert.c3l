@@ -77,7 +77,8 @@ fn String? CSVValue.to_string(self) {
 }
 
 
-module dessert::csv;
+module dessert::format::csv;
+
 import dessert::ser;
 import dessert::des;
 import csv;

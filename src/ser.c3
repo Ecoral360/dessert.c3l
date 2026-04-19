@@ -1,5 +1,4 @@
 module dessert::ser;
-import dessert::json;
 import dessert::utils;
 
 import std::io;
@@ -47,6 +46,7 @@ interface Serializable {
   fn void? serialize(Serializer serializer);
 }
 
+<* @require $defined(Serializer s = serializer) *>
 macro serialize(serializer, value) {
   serialize_value(serializer, value, {})!;
   return serializer.result();
@@ -160,14 +160,14 @@ macro serialize_value(serializer, value, $config) {
     $case $defined(value.len) &&& $defined(value[0]) &&& $defined(value.len()):
       serializer.serialize_slice_start(value.len())!;
       foreach (el: value) {
-        el.serialize(serializer)!;
+        serialize_value(serializer, value, $config)!;
       }
       serializer.serialize_slice_end(value.len())!;
 
     $case $defined(value.len) &&& $defined(value[0]):
       serializer.serialize_slice_start(value.len)!;
       foreach (el: value) {
-        el.serialize(serializer)!;
+        serialize_value(serializer, el, $config)!;
       }
       serializer.serialize_slice_end(value.len)!;
 

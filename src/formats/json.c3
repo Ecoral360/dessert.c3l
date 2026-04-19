@@ -201,7 +201,7 @@ fn String JsonValue.to_pretty_string(self, int indent = 2) {
 }
 
 
-module dessert::json;
+module dessert::format::json;
 import dessert::ser;
 import dessert::des;
 import json;
