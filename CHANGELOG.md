@@ -4,6 +4,7 @@ All notable changes to dessert are documented here.
 
 ## 2026-04-19
 
+- Added the `fmt` `@DField` option to pass format specific arguments to the serializer.
 - Added `XML` serializer in `dessert::format::xml`
 - Fixed a bug that made muli-dimensional arrays impossible to serialize
 

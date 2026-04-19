@@ -1,5 +1,13 @@
 module dessert::utils;
 
+fn bool String[].contains(&self, String needle) {
+  foreach(s : self) {
+    if (needle == s) return true;
+  }
+
+  return false;
+}
+
 macro @is_maybe($value) {
   return ($defined($value.get) &&& $defined($value.get()) &&& 
           ($defined($value.get()!) ||| $defined($value == maybe::value{$typeof($value.value)}($value.value))));

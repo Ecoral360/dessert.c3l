@@ -262,11 +262,11 @@ fn void? JsonSerializer.serialize_slice_end(&self, ulong len) @dynamic {
   self.output.push({ .kind = JsonValueKind.ARRAY, .value = { .l = l } });
 }
 
-fn void? JsonSerializer.serialize_field_start(&self, String name) @dynamic {
+fn void? JsonSerializer.serialize_field_start(&self, String name, String[] fmt) @dynamic {
   self.output.push({.kind = STRING, .value = {.s = name}});
 }
 
-fn void? JsonSerializer.serialize_field_end(&self, String name) @dynamic {
+fn void? JsonSerializer.serialize_field_end(&self, String name, String[] fmt) @dynamic {
   JsonValue value = self.output.pop()!;
   JsonValue key = self.output.pop()!;
   JsonValue obj = self.output.pop()!;

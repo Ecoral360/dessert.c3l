@@ -1,4 +1,5 @@
 module dessert;
+import std::collections::map;
 
 enum DessertEnum {
   NAME,
@@ -12,6 +13,7 @@ struct DessertFieldConfig {
   String rename;
   String[] aliases;
   String validator;
+  String[] fmt;
 }
 
 attrdef @DField(DessertFieldConfig config) = @tag("dessert:ser", config), @tag("dessert:des", config);

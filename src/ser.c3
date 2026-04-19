@@ -7,8 +7,8 @@ import std::collections::maybe;
 
 interface Serializer {
   fn void? struct_start(String name);
-  fn void? serialize_field_start(String name);
-  fn void? serialize_field_end(String name);
+  fn void? serialize_field_start(String name, String[] fmt);
+  fn void? serialize_field_end(String name, String[] fmt);
   fn void? struct_end(String name);
 
   fn void? serialize_slice_start(ulong len);
@@ -86,11 +86,13 @@ macro impl_serialize(s, Serializer serializer) {
             $case $dessert.skip_if_empty:
               if (!@is_empty(s.$eval($member.nameof))) {
                 serializer.serialize_field_start(
-                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                  $dessert.fmt,
                 )!;
                 serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
                 serializer.serialize_field_end(
-                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                  $dessert.fmt,
                 )!;
               }
 
@@ -99,21 +101,25 @@ macro impl_serialize(s, Serializer serializer) {
 
               if (!s.$eval("skip_serializing_" +++ $member.nameof)()) {
                 serializer.serialize_field_start(
-                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                  $dessert.fmt,
                 )!;
                 serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
                 serializer.serialize_field_end(
-                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                  $dessert.fmt,
                 )!;
               }
 
             $default:
               serializer.serialize_field_start(
-                $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                $dessert.fmt,
               )!;
               serialize_value(serializer, s.$eval($member.nameof), $dessert)!;
               serializer.serialize_field_end(
-                  $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof
+                $dessert.rename.len > 0 ??? $dessert.rename : $member.nameof,
+                $dessert.fmt,
               )!;
           $endswitch
         $endif
