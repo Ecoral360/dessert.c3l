@@ -7,13 +7,28 @@ enum DessertEnum {
   FIELD,
 }
 
+
+typedef FieldAttrs = String[];
+
+fn String? FieldAttrs.get(&self, String needle) {
+  foreach(s : self) {
+    if (s == needle) return "true";
+
+    if (s.starts_with(needle)) {
+      return s.tsplit("=", 2)[1];
+    }
+  }
+
+  return NOT_FOUND~;
+}
+
 struct DessertFieldConfig {
   bool skip;
   bool skip_if_empty;
   String rename;
   String[] aliases;
   String validator;
-  String[] fmt;
+  FieldAttrs fmt;
 }
 
 attrdef @DField(DessertFieldConfig config) = @tag("dessert:ser", config), @tag("dessert:des", config);

@@ -135,7 +135,7 @@ fn void? CSVSerializer.struct_end(&self, String name) @dynamic {}
 fn void? CSVSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
 fn void? CSVSerializer.serialize_slice_end(&self, ulong len) @dynamic {}
 
-fn void? CSVSerializer.serialize_field_start(&self, String name, String[] fmt) @dynamic {
+fn void? CSVSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
   if (catch self.headers.get(name)) {
     List{CSVValue} csv_values;
     csv_values.init(mem);
@@ -143,7 +143,7 @@ fn void? CSVSerializer.serialize_field_start(&self, String name, String[] fmt) @
   }
 }
 
-fn void? CSVSerializer.serialize_field_end(&self, String name, String[] fmt) @dynamic {
+fn void? CSVSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) @dynamic {
   CSVValue value = self.output.pop()!;
 
   List{CSVValue} values = self.headers.get(name)!;

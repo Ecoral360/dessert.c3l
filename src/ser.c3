@@ -7,8 +7,8 @@ import std::collections::maybe;
 
 interface Serializer {
   fn void? struct_start(String name);
-  fn void? serialize_field_start(String name, String[] fmt);
-  fn void? serialize_field_end(String name, String[] fmt);
+  fn void? serialize_field_start(String name, FieldAttrs fmt);
+  fn void? serialize_field_end(String name, FieldAttrs fmt);
   fn void? struct_end(String name);
 
   fn void? serialize_slice_start(ulong len);
