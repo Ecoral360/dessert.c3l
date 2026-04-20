@@ -47,11 +47,10 @@ fn void? XMLSerializer.struct_end(&self, String name) @dynamic {
   self.output.append(">");
 }
 
-fn void? XMLSerializer.serialize_slice_start(&self, ulong len) @dynamic {
-  if (self.attribute_mode) {
-    return XML_SLICE_IN_ATTRIBUTE~;
-  }
+fn void? XMLSerializer.serialize_slice_start(&self, ulong len) @dynamic {}
+fn void? XMLSerializer.serialize_slice_end(&self, ulong len) @dynamic {}
 
+fn void? XMLSerializer.serialize_slice_item_start(&self, usz idx) @dynamic {
   String name = self.current_field[^1] ?: "el";
   if (name.ends_with("s")) {
     name = name[..^2];
@@ -60,7 +59,7 @@ fn void? XMLSerializer.serialize_slice_start(&self, ulong len) @dynamic {
   self.output.append(name);
   self.output.append(">");
 }
-fn void? XMLSerializer.serialize_slice_end(&self, ulong len) @dynamic {
+fn void? XMLSerializer.serialize_slice_item_end(&self, usz idx) @dynamic {
   String name = self.current_field[^1] ?: "el";
   if (name.ends_with("s")) {
     name = name[..^2];

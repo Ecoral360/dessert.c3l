@@ -393,7 +393,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   Char32 next = self.input.peek()!;
   switch {
     case next == '"':
-      return object::new_string(self.next_string(), mem)!;
+      return object::new_string(tmem, self.next_string())!;
 
     case next == 't':
     case next == 'f':
@@ -404,7 +404,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return object::new_null();
 
     case next == '{':
-      Object* o = object::new_obj(mem);
+      Object* o = object::new_obj(tmem);
       self.struct_start("")!;
       while(self.has_next_field()!) {
         String next_key = self.next_field_name()!;
@@ -414,7 +414,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return o;
 
     case next == '[':
-      Object* o = object::new_obj(mem);
+      Object* o = object::new_obj(tmem);
       self.slice_start()!;
       while(self.has_next_slice_item()!) {
         o.push(self.next_any())!;
@@ -425,9 +425,9 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
     case ascii::is_digit((char) next):
       double value = self.next_double()!;
       if ((double) math::round(value) == value) {
-        return object::new_int((int128) value, mem);
+        return object::new_int(tmem, (int128) value);
       }
-      return object::new_float(value, mem);
+      return object::new_float(tmem, value);
   }
 
   return INVALID_OBJECT~;

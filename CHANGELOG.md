@@ -2,6 +2,11 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-04-20
+
+- Added support for C3 `0.8.0`
+- Added optional `serialize_slice_item_start(usz idx)` and `serialize_slice_item_end(usz idx)` to the Serializer interface
+
 ## 2026-04-19
 
 - Added the `fmt` `@DField` option to pass format specific arguments to the serializer.
