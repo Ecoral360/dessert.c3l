@@ -136,7 +136,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
           $foreach $member : $type.members:
             $if $member.name == $field_name:
               var field_value = deserialize{$member.type}(deserializer)!;
-              *value = $type.lookup_field($eval($field_name), field_value)!;
+              *value = $type.lookup_field($field_name, field_value)!;
             $endif
           $endforeach
       $endswitch

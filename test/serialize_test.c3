@@ -7,17 +7,17 @@ import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive{SPoint}(dessert::serialize));
+$expand(derive(SPoint::name, dessert));
 struct SPoint {
   int x;
   int y;
 }
 
+$expand(derive(SBox::name, dessert));
 struct SBox {
   String label;
   SPoint center;
 }
-fn void? SBox.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 struct SWithPointer {
   String name;
