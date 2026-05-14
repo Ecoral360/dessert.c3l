@@ -280,6 +280,73 @@ fn void? JsonSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) 
 fn JsonValue? JsonSerializer.result(&self) => self.output.pop();
 
 
+struct JsonStringSerializer (Serializer) {
+  DString output;
+}
+
+fn JsonStringSerializer string_serializer(Allocator allocator = tmem) {
+  DString output;
+  output.init(allocator);
+  return { .output = output };
+}
+
+fn void? JsonStringSerializer.serialize_null(&self) @dynamic {
+  self.output.append("null");
+}
+
+fn void? JsonStringSerializer.serialize_bool(&self, bool b) @dynamic {
+  self.output.append(b ? "true" : "false");
+}
+
+fn void? JsonStringSerializer.serialize_long(&self, long i) @dynamic {
+  self.output.append(string::tformat("%d", i));
+}
+
+fn void? JsonStringSerializer.serialize_double(&self, double f) @dynamic {
+  self.output.append(string::tformat("%d", f));
+}
+
+fn void? JsonStringSerializer.serialize_string(&self, String s) @dynamic {
+  self.output.append("\"");
+  self.output.append(s.treplace("\"", "\\\""));
+  self.output.append("\"");
+}
+
+fn void? JsonStringSerializer.struct_start(&self, String name) @dynamic {
+  self.output.append("{");
+}
+
+fn void? JsonStringSerializer.struct_end(&self, String name) @dynamic {
+  if (self.output[^1] == ',') {
+    self.output.chop(self.output.len() - 1);
+  }
+  self.output.append("}");
+}
+
+fn void? JsonStringSerializer.serialize_slice_start(&self, long len) @dynamic {
+  self.output.append("[");
+}
+
+fn void? JsonStringSerializer.serialize_slice_end(&self, long len) @dynamic {
+  if (len > 0) self.output.chop(self.output.len() - 1);
+  self.output.append("]");
+}
+
+fn void? JsonStringSerializer.serialize_slice_item_end(&self, usz idx) @dynamic {
+  self.output.append(",");
+}
+
+fn void? JsonStringSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
+  self.serialize_string(name)!;
+  self.output.append(":");
+}
+
+fn void? JsonStringSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) @dynamic {
+  self.output.append(",");
+}
+
+fn String JsonStringSerializer.result(&self) => self.output.str_view();
+
 
 faultdef 
   INVALID_OBJECT, 

@@ -162,13 +162,13 @@ macro impl_deserialize(value, Deserializer deserializer) {
             if (names.contains(next_key)) {
               return DUPLICATED_KEY~;
             }
-            $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
-            if (catch next_value) {
-              io::eprintfn("Error deserializing key: %s", next_key);
-              next_value!;
-              return;
-            }
             $if !$dessert.skip:
+              $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
+              if (catch next_value) {
+                io::eprintfn("Error deserializing key: %s", next_key);
+                next_value!;
+                return;
+              }
               value.$eval($member.name) = next_value;
             $endif
 

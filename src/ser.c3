@@ -78,58 +78,88 @@ macro impl_serialize(s, Serializer serializer) {
           $switch:
             $case $config.skip_if_empty:
               if (!@is_empty(s.$eval($member.name))) {
-                $if !$config.flatten:
-                  serializer.serialize_field_start(
-                    $config.rename.len > 0 ??? $config.rename : $member.name,
-                    $config.fmt,
-                  )!;
-                $endif
-                serialize_value(serializer, s.$eval($member.name), $config)!;
-                $if !$config.flatten:
-                  serializer.serialize_field_end(
-                    $config.rename.len > 0 ??? $config.rename : $member.name,
-                    $config.fmt,
-                  )!;
-                $endif
+                @serialize_field(serializer, $config, s, $member)!;
               }
 
             $case $defined(s.$eval("skip_serializing_" +++ $member.name)()) 
               &&& $Typeof(s.$eval("skip_serializing_" +++ $member.name))::returns == bool:
 
               if (!s.$eval("skip_serializing_" +++ $member.name)()) {
-                $if !$config.flatten:
-                  serializer.serialize_field_start(
-                    $config.rename.len > 0 ??? $config.rename : $member.name,
-                    $config.fmt,
-                  )!;
-                $endif
-                serialize_value(serializer, s.$eval($member.name), $config)!;
-                $if !$config.flatten:
-                  serializer.serialize_field_end(
-                    $config.rename.len > 0 ??? $config.rename : $member.name,
-                    $config.fmt,
-                  )!;
-                $endif
+                @serialize_field(serializer, $config, s, $member)!;
               }
 
             $default:
-              $if !$config.flatten:
-                serializer.serialize_field_start(
-                  $config.rename.len > 0 ??? $config.rename : $member.name,
-                  $config.fmt,
-                )!;
-              $endif
-              serialize_value(serializer, s.$eval($member.name), $config)!;
-              $if !$config.flatten:
-                serializer.serialize_field_end(
-                  $config.rename.len > 0 ??? $config.rename : $member.name,
-                  $config.fmt,
-                )!;
-              $endif
+              @serialize_field(serializer, $config, s, $member)!;
           $endswitch
         $endif
       $endforeach
   $endswitch
+}
+
+macro @impl_serialize_struct($Type, s, Serializer serializer) @local {
+  $foreach $member : $Type::members:
+    DessertFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DessertFieldConfig) {};
+    $if !$config.skip:
+      $if $config.validator.len > 0: 
+        if (!s.$eval($config.validator)(s.$eval($member.name))) {
+          return VALIDATOR_ERROR~;
+        }
+      $endif
+
+      $switch:
+        $case $config.skip_if_empty:
+          if (!@is_empty(s.$eval($member.name))) {
+            @serialize_field(serializer, $config, s, $member)!;
+          }
+
+        $case $defined(s.$eval("skip_serializing_" +++ $member.name)()) 
+          &&& $Typeof(s.$eval("skip_serializing_" +++ $member.name))::returns == bool:
+
+          if (!s.$eval("skip_serializing_" +++ $member.name)()) {
+            @serialize_field(serializer, $config, s, $member)!;
+          }
+
+        $default:
+          @serialize_field(serializer, $config, s, $member)!;
+      $endswitch
+    $endif
+  $endforeach
+}
+
+macro @serialize_field(serializer, $config, s, $member) @local {
+  $if $member.type.name == @sprintf("%s.%s", $Typeof(s)::inner.name, $member.name):
+    $if !$config.flatten:
+      serializer.serialize_field_start(
+        $config.rename.len > 0 ??? $config.rename : $member.name,
+        $config.fmt,
+      )!;
+    $endif
+
+    @impl_serialize_struct($member.type, &s.$eval($member.name), serializer)!;
+
+    $if !$config.flatten:
+      serializer.serialize_field_end(
+        $config.rename.len > 0 ??? $config.rename : $member.name,
+        $config.fmt,
+      )!;
+    $endif
+  $else
+    $if !$config.flatten:
+      serializer.serialize_field_start(
+        $config.rename.len > 0 ??? $config.rename : $member.name,
+        $config.fmt,
+      )!;
+    $endif
+
+    serialize_value(serializer, s.$eval($member.name), $config)!;
+
+    $if !$config.flatten:
+      serializer.serialize_field_end(
+        $config.rename.len > 0 ??? $config.rename : $member.name,
+        $config.fmt,
+      )!;
+    $endif
+  $endif
 }
 
 macro @is_empty(#value) {
