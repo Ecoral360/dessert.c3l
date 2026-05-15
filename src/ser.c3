@@ -66,8 +66,9 @@ macro impl_serialize(s, Serializer serializer) {
 
     $case $Typeof(s)::inner.kind == STRUCT:
       var $type = $Typeof(s)::inner;
+      DStructConfig $struct_config = $type.has_tag("dessert:ser:struct") ??? $type.get_tag("dessert:ser:struct") : {};
       $foreach $member : $type.members:
-        DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
+        DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : {};
         $if !$config.skip:
           $if $config.validator.len > 0: 
             if (!s.$eval($config.validator)(s.$eval($member.name))) {
@@ -78,25 +79,29 @@ macro impl_serialize(s, Serializer serializer) {
           $switch:
             $case $config.skip_if_empty:
               if (!@is_empty(s.$eval($member.name))) {
-                @serialize_field(serializer, $config, s, $member)!;
+                @serialize_field(serializer, $config, s, $member, $struct_config)!;
               }
 
             $case $defined(s.$eval("skip_serializing_" +++ $member.name)()) 
               &&& $Typeof(s.$eval("skip_serializing_" +++ $member.name))::returns == bool:
 
               if (!s.$eval("skip_serializing_" +++ $member.name)()) {
-                @serialize_field(serializer, $config, s, $member)!;
+                @serialize_field(serializer, $config, s, $member, $struct_config)!;
               }
 
             $default:
-              @serialize_field(serializer, $config, s, $member)!;
+              @serialize_field(serializer, $config, s, $member, $struct_config)!;
           $endswitch
         $endif
       $endforeach
+
+    $default:
+      $error @sprintf("Unsupported type for serialization %s (%s)", $Typeof(s)::inner, $Typeof(s)::inner.kind);
   $endswitch
 }
 
 macro @impl_serialize_struct($Type, s, Serializer serializer) @local {
+  DStructConfig $struct_config = $Type::has_tag("dessert:ser:struct") ??? $Type::get_tag("dessert:ser:struct") : {};
   $foreach $member : $Type::members:
     DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
     $if !$config.skip:
@@ -109,59 +114,75 @@ macro @impl_serialize_struct($Type, s, Serializer serializer) @local {
       $switch:
         $case $config.skip_if_empty:
           if (!@is_empty(s.$eval($member.name))) {
-            @serialize_field(serializer, $config, s, $member)!;
+            @serialize_field(serializer, $config, s, $member, $struct_config)!;
           }
 
         $case $defined(s.$eval("skip_serializing_" +++ $member.name)()) 
           &&& $Typeof(s.$eval("skip_serializing_" +++ $member.name))::returns == bool:
 
           if (!s.$eval("skip_serializing_" +++ $member.name)()) {
-            @serialize_field(serializer, $config, s, $member)!;
+            @serialize_field(serializer, $config, s, $member, $struct_config)!;
           }
 
         $default:
-          @serialize_field(serializer, $config, s, $member)!;
+          @serialize_field(serializer, $config, s, $member, $struct_config)!;
       $endswitch
     $endif
   $endforeach
 }
 
-macro @serialize_field(serializer, $config, s, $member) @local {
-  $if $member.type.name == @sprintf("%s.%s", $Typeof(s)::inner.name, $member.name):
-    $if !$config.flatten:
-      serializer.serialize_field_start(
-        $config.rename.len > 0 ??? $config.rename : $member.name,
-        $config.fmt,
-      )!;
-      serializer.struct_start($member.type.name)!;
-    $endif
-
-    @impl_serialize_struct($member.type, &s.$eval($member.name), serializer)!;
-
-    $if !$config.flatten:
-      serializer.struct_end($member.type.name)!;
-      serializer.serialize_field_end(
-        $config.rename.len > 0 ??? $config.rename : $member.name,
-        $config.fmt,
-      )!;
-    $endif
+macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) @local @const {
+  $if $config.rename.len > 0:
+    return $config.rename;
   $else
-    $if !$config.flatten:
-      serializer.serialize_field_start(
-        $config.rename.len > 0 ??? $config.rename : $member.name,
-        $config.fmt,
-      )!;
-    $endif
+    $switch $struct_config.rename_all:
+      $case VERBATIM:
+        return $name;
 
-    serialize_value(serializer, s.$eval($member.name), $config)!;
-
-    $if !$config.flatten:
-      serializer.serialize_field_end(
-        $config.rename.len > 0 ??? $config.rename : $member.name,
-        $config.fmt,
-      )!;
-    $endif
+      $default:
+        $error @sprintf("CaseConvention %s not supported for now.");
+    $endswitch
   $endif
+}
+
+macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConfig $struct_config) @local {
+  $switch:
+    $case $member.type.name == @sprintf("%s.%s", $Typeof(s)::inner.name, $member.name):
+      $if !$config.flatten:
+        serializer.serialize_field_start(
+          @rename($config, $member.name, $struct_config),
+          $config.fmt,
+        )!;
+        serializer.struct_start($member.type.name)!;
+      $endif
+
+      @impl_serialize_struct($member.type, &s.$eval($member.name), serializer)!;
+
+      $if !$config.flatten:
+        serializer.struct_end($member.type.name)!;
+        serializer.serialize_field_end(
+          @rename($config, $member.name, $struct_config),
+          $config.fmt,
+        )!;
+      $endif
+
+    $default:
+      $if !$config.flatten:
+        serializer.serialize_field_start(
+          @rename($config, $member.name, $struct_config),
+          $config.fmt,
+        )!;
+      $endif
+
+      serialize_value(serializer, s.$eval($member.name), $config)!;
+
+      $if !$config.flatten:
+        serializer.serialize_field_end(
+          @rename($config, $member.name, $struct_config),
+          $config.fmt,
+        )!;
+      $endif
+  $endswitch
 }
 
 macro @is_empty(#value) {

@@ -22,10 +22,10 @@ fn String? FieldAttrs.get(&self, String needle) {
   return NOT_FOUND~;
 }
 
-struct DFieldTagConfig {
-  <* Specify another field to be used as the tag for this field type. *>
-  String by;
-}
+// struct DFieldTagConfig {
+//   <* Specify another field to be used as the tag for this field type. *>
+//   String by;
+// }
 
 struct DFieldConfig {
   bool skip;
@@ -37,10 +37,10 @@ struct DFieldConfig {
   bool flatten;
 
   <*
-    Config for how this field is tagged.
+    Specify another field to be used as the tag for this field type.
     *Only available for union fields*
   *>
-  DFieldTagConfig tagged;
+  String tagged_by;
 }
 
 attrdef @DField(DFieldConfig config) = @tag("dessert:ser", config), @tag("dessert:des", config);
@@ -56,8 +56,20 @@ attrdef @DEnum(DEnumConfig config) = @tag("dessert:ser:enum", config), @tag("des
 attrdef @DEnumSer(DEnumConfig config) = @tag("dessert:ser:enum", config);
 attrdef @DEnumDes(DEnumConfig config) = @tag("dessert:des:enum", config);
 
+enum CaseConvention : (String example) {
+  VERBATIM { "verbatim" },
+  KEBAB_CASE { "kebab-case" },
+  CAMEL_CASE { "camelCase" },
+  PASCAL_CASE { "PascalCase" },
+  SCREAMING_SNAKE_CASE { "SCREAMING_SNAKE_CASE" },
+  SNAKE_CASE { "snake_case" },
+  LOWER_CASE { "lower" },
+  UPPER_CASE { "upper" },
+}
+
 struct DStructConfig {
   bool deny_unknown_fields;
+  CaseConvention rename_all;
 }
 attrdef @DStruct(DStructConfig config) = @tag("dessert:ser:struct", config), @tag("dessert:des:struct", config);
 attrdef @DStructSer(DStructConfig config) = @tag("dessert:ser:struct", config);

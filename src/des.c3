@@ -100,7 +100,7 @@ macro deserialize(Deserializer deserializer) <Output> {
   $endswitch
 }
 
-macro impl_deserialize(value, Deserializer deserializer) {
+macro void? impl_deserialize(value, Deserializer deserializer) {
   $if $Typeof(value)::kind != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif
