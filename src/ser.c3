@@ -50,7 +50,7 @@ interface Serializable {
 
 <* @require $defined(Serializer s = serializer) *>
 macro serialize(serializer, value) {
-  serialize_value(serializer, value, (DessertFieldConfig) {})!;
+  serialize_value(serializer, value, (DFieldConfig) {})!;
   return serializer.result();
 }
 
@@ -67,7 +67,7 @@ macro impl_serialize(s, Serializer serializer) {
     $case $Typeof(s)::inner.kind == STRUCT:
       var $type = $Typeof(s)::inner;
       $foreach $member : $type.members:
-        DessertFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DessertFieldConfig) {};
+        DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
         $if !$config.skip:
           $if $config.validator.len > 0: 
             if (!s.$eval($config.validator)(s.$eval($member.name))) {
@@ -98,7 +98,7 @@ macro impl_serialize(s, Serializer serializer) {
 
 macro @impl_serialize_struct($Type, s, Serializer serializer) @local {
   $foreach $member : $Type::members:
-    DessertFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DessertFieldConfig) {};
+    DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
     $if !$config.skip:
       $if $config.validator.len > 0: 
         if (!s.$eval($config.validator)(s.$eval($member.name))) {
@@ -257,21 +257,21 @@ macro serialize_value(serializer, value, $config) {
 *>
 macro impl_serialize_enum(s, serializer) @local {
   var $type = $Typeof(s)::inner;
-  var $config = $type.has_tag("dessert:ser:enum") ??? $type.get_tag("dessert:ser:enum") : (DessertEnumConfig) {};
+  var $config = $type.has_tag("dessert:ser:enum") ??? $type.get_tag("dessert:ser:enum") : (DEnumConfig) {};
 
   $switch $config.as:
-    $case NAME:
-      return serialize_value(serializer, s.description, (DessertFieldConfig) {});
+    $case DESCRIPTION:
+      return serialize_value(serializer, s.description, (DFieldConfig) {});
 
     $case ORDINAL:
-      return serialize_value(serializer, s.ordinal, (DessertFieldConfig) {});
+      return serialize_value(serializer, s.ordinal, (DFieldConfig) {});
 
     $case FIELD:
       var $field_name = $config.field;
       $if $field_name.len == 0:
         $error "While serializing an enum: When the 'as' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
       $endif
-      return serialize_value(serializer, s.$eval($field_name), (DessertFieldConfig) {});
+      return serialize_value(serializer, s.$eval($field_name), (DFieldConfig) {});
   $endswitch
 }
 

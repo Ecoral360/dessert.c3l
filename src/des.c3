@@ -108,7 +108,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
   $switch:
     $case $Typeof(value)::inner.kind == ENUM:
       var $type = $Typeof(value)::inner;
-      var $config = $type.has_tag("dessert:des:enum") ??? $type.get_tag("dessert:des:enum") : (DessertEnumConfig) {};
+      var $config = $type.has_tag("dessert:des:enum") ??? $type.get_tag("dessert:des:enum") : (DEnumConfig) {};
 
       $switch $config.as:
         $case NAME:
@@ -143,7 +143,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
 
     $case $Typeof(value)::inner.kind == STRUCT:
       var $type = $Typeof(value)::inner;
-      var $config = $type.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : (DessertStructConfig) {};
+      var $config = $type.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : (DStructConfig) {};
       List{String} names;
       names.tinit();
 
@@ -156,7 +156,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
           return;
         }
         $foreach $member : $Typeof(value)::inner.members:
-          DessertFieldConfig $dessert = $member.has_tag("dessert:des") ??? $member.get_tag("dessert:des") : (DessertFieldConfig) {};
+          DFieldConfig $dessert = $member.has_tag("dessert:des") ??? $member.get_tag("dessert:des") : (DFieldConfig) {};
           var $name = $dessert.rename.len > 0 ??? $dessert.rename : $member.name;
           if ($name == next_key) {
             if (names.contains(next_key)) {
