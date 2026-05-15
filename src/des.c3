@@ -163,13 +163,17 @@ macro impl_deserialize(value, Deserializer deserializer) {
               return DUPLICATED_KEY~;
             }
             $if !$dessert.skip:
-              $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
-              if (catch next_value) {
-                io::eprintfn("Error deserializing key: %s", next_key);
-                next_value!;
-                return;
-              }
-              value.$eval($member.name) = next_value;
+              $if $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
+                impl_deserialize(&value.$eval($member.name), deserializer)!;
+              $else
+                $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
+                if (catch next_value) {
+                  io::eprintfn("Error deserializing key: %s", next_key);
+                  next_value!;
+                  return;
+                }
+                value.$eval($member.name) = next_value;
+              $endif
             $endif
 
             names.push($member.name);

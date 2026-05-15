@@ -133,11 +133,13 @@ macro @serialize_field(serializer, $config, s, $member) @local {
         $config.rename.len > 0 ??? $config.rename : $member.name,
         $config.fmt,
       )!;
+      serializer.struct_start($member.type.name)!;
     $endif
 
     @impl_serialize_struct($member.type, &s.$eval($member.name), serializer)!;
 
     $if !$config.flatten:
+      serializer.struct_end($member.type.name)!;
       serializer.serialize_field_end(
         $config.rename.len > 0 ??? $config.rename : $member.name,
         $config.fmt,
