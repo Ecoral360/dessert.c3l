@@ -111,7 +111,7 @@ macro impl_deserialize(value, Deserializer deserializer) {
       var $config = $type.has_tag("dessert:des:enum") ??? $type.get_tag("dessert:des:enum") : (DEnumConfig) {};
 
       $switch $config.as:
-        $case NAME:
+        $case DESCRIPTION:
           String name = deserializer.next_string()!;
           int found = -1;
           foreach(i, v : $type.names) {
