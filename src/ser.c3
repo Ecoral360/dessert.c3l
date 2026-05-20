@@ -5,6 +5,9 @@ import std::io;
 import std::core::types;
 import std::collections::maybe;
 
+const char[256] TO_UPPER @private = { ['a'..'z'] = 'a' - 'A' };
+macro char @to_upper(char $c) => $c - TO_UPPER[$c];
+
 interface Serializer {
   fn void? struct_start(String name);
   fn void? serialize_field_start(String name, FieldAttrs fmt);
@@ -112,8 +115,8 @@ macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) 
       $case CAMEL_CASE:
         String $new_name = "";
         $for int $i = 0; $i < $name.len; $i++:
-          $if $name[$i] == "_":
-            $new_name +++= ascii::@to_upper($name[$i+1]);
+          $if $name[$i] == '_':
+            $new_name +++= @to_upper($name[$i+1]);
             $i++;
           $else
             $new_name +++= $name[$i];

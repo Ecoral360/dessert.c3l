@@ -68,7 +68,7 @@ macro deserialize(Deserializer deserializer) <Output> {
       if (deserializer.next_null()!) {
         return null;
       } else {
-        Output v = mem::new(Output::inner);
+        Output v = alloc::new(tmem, Output::inner);
         *v = deserialize{Output::inner}(deserializer)!;
         return v;
       }
