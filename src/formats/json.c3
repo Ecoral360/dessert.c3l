@@ -303,7 +303,7 @@ fn void? JsonStringSerializer.serialize_long(&self, long i) @dynamic {
 }
 
 fn void? JsonStringSerializer.serialize_double(&self, double f) @dynamic {
-  self.output.append(string::tformat("%d", f));
+  self.output.append(string::tformat("%f", f));
 }
 
 fn void? JsonStringSerializer.serialize_string(&self, String s) @dynamic {
