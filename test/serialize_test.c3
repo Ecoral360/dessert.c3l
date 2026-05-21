@@ -625,7 +625,6 @@ fn void test_ser_dunion_anon_first() @test {
   JsonSerializer js = json::serializer();
   JsonValue j = ser::serialize(&js, s)!!;
   defer j.free();
-  io::printn(j.to_pretty_string());
 
   assert(j.value.d.get("kind")!!.value.i == 0);
   assert(j.value.d.get("foo")!!.kind == JsonValueKind.INT);
