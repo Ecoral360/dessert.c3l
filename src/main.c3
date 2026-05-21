@@ -1,4 +1,4 @@
-module example @if($feature(EXE));
+module example @if($feature(DESSERT_EXAMPLE));
 import std;
 import dessert;
 import json;
