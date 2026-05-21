@@ -73,8 +73,12 @@ macro impl_serialize(s, Serializer serializer) {
     $case $Typeof(s)::inner.kind == STRUCT:
       var $type = $Typeof(s)::inner;
       DStructConfig $struct_config = $type.has_tag("dessert:ser:struct") ??? $type.get_tag("dessert:ser:struct") : {};
-      $foreach $member : $type.members:
+      $foreach $i, $member : $type.members:
         DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : {};
+        $if $i == 0 &&& $type.is_substruct:
+          $config = {...$config, .flatten = true};
+        $endif
+
         $if !$config.skip:
           $if $config.validator.len > 0: 
             if (!s.$eval($config.validator)($member.get(*s))) {
