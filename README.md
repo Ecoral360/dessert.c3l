@@ -18,10 +18,13 @@ The library is built around two core interfaces:
 - Support for `Maybe` fields (optional values)
 - Support for slice/array/List fields
 - Enum serialization (as name, ordinal, or associated field)
+- Tagged union serialization (named, anonymous, and inlined patterns)
+- Field flattening (inline a nested struct's fields into the parent)
 - Skip specific fields during serialization
 - Skip empty fields (slices, `Maybe`, pointers) via `skip_if_empty`
 - Conditionally skip fields via `skip_serializing_<field>` methods
 - Rename fields for the output
+- Bulk field rename via `rename_all` case conventions
 - Validate field values before serialization
 - Support for all primitive types: `bool`, `char`, `ichar`, `short`, `int`, `long`, `int128`, `ushort`, `uint`, `ulong`, `uint128`, `float`, `double`, `String`, `ZString`
 
@@ -31,16 +34,22 @@ The library is built around two core interfaces:
 - Support for `Maybe` fields
 - Support for slice/array/List fields
 - Enum deserialization (as name, ordinal, or associated field)
+- Tagged union deserialization (named, anonymous, and inlined patterns)
 - Field renaming support (different name in the format and in C3)
 - Duplicate key detection
 - Unknown field skipping (or rejection via `deny_unknown_fields`)
-- Deserialize arbitrary data into `Object*`
+- Deserialize arbitrary data into `Object` fields
 - Descriptive error messages on deserialization failure
 - Support for all primitive types: `bool`, `char`, `ichar`, `short`, `int`, `long`, `int128`, `ushort`, `uint`, `ulong`, `uint128`, `float`, `double`, `String`, `ZString`
 
 ### JSON
 
 The `dessert::json` module provides a complete JSON serializer and deserializer.
+
+- `json::serializer` to get a serializer that produces a JsonValue (with methods like `to_pretty_string()`).
+- `json::string_serializer` to get a serializer that produces directly a json string.
+
+- `json::deserializer` to get a deserializer that takes a json string and produces your struct.
 
 ### CSV
 
@@ -54,7 +63,7 @@ Use the `@DField` attribute to customize serialization/deserialization behavior 
 struct Person {
     int age;                                  // Serialized as "age"
     String name;                              // Serialized as "name"
-    bool is_cool @DField({ .skip = true });  // Skipped during serialization
+    bool is_cool @DFieldSer({ .skip = true });  // Skipped during serialization
     Maybe{Person*} friend @DField({ .rename = "my_friend" }); // Renamed to "my_friend"
     int score @DField({ .validator = "validate_score" }); // Validated before serialization
 }
@@ -68,7 +77,7 @@ struct Person {
 | `@DFieldSer`   | Apply config to serialization only                                              |
 | `@DFieldDes`   | Apply config to deserialization only                                            |
 
-**Field attribute options (`DessertFieldConfig` struct):**
+**Field attribute options (`DFieldConfig` struct):**
 
 | Option           | Type       | Description                                                                       |
 |------------------|------------|-----------------------------------------------------------------------------------|
@@ -77,6 +86,8 @@ struct Person {
 | `.rename`        | `String`   | Use a different name for this field in the output/input                           |
 | `.aliases`       | `String[]` | Alternative names to accept during deserialization (not yet implemented)          |
 | `.validator`     | `String`   | Call a validation method before serialization                                     |
+| `.flatten`       | `bool`     | Flatten a nested struct's fields directly into the parent object                  |
+| `.tagged_by`     | `String`   | Name of the sibling field whose value selects the active union member             |
 
 **Conditional skip methods:**
 
@@ -111,12 +122,12 @@ enum Color @DEnum({ .as = DESCRIPTION }) {
 | `@DEnumSer` | Apply enum config to serialization only                        |
 | `@DEnumDes` | Apply enum config to deserialization only                      |
 
-**Enum attribute options (`DessertEnumConfig` struct):**
+**Enum attribute options (`DEnumConfig` struct):**
 
 | Option    | Type          | Description                                                                          |
 |-----------|---------------|--------------------------------------------------------------------------------------|
-| `.as`     | `DessertEnum` | How to represent the enum: `DESCRIPTION` (default), `ORDINAL`, or `FIELD`                  |
-| `.field`  | `String`      | Name of the associated field to use when `.as = FIELD`                              |
+| `.as`     | `DessertEnum` | How to represent the enum: `DESCRIPTION` (default), `ORDINAL`, or `FIELD`           |
+| `.field`  | `String`      | Name of the associated field to use when `.as = FIELD`                               |
 
 **Struct attributes:**
 
@@ -135,11 +146,99 @@ struct Function @DStruct({ .deny_unknown_fields = true }) {
 | `@DStructSer`  | Apply struct config to serialization only                          |
 | `@DStructDes`  | Apply struct config to deserialization only                        |
 
-**Struct attribute options (`DessertStructConfig` struct):**
+**Struct attribute options (`DStructConfig` struct):**
 
-| Option                  | Type   | Description                                                                         |
-|-------------------------|--------|-------------------------------------------------------------------------------------|
-| `.deny_unknown_fields`  | `bool` | Return `UNKNOWN_FIELD` fault if an unrecognized field is encountered during deserialization (default: skip unknown fields silently) |
+| Option                  | Type             | Description                                                                         |
+|-------------------------|------------------|-------------------------------------------------------------------------------------|
+| `.deny_unknown_fields`  | `bool`           | Return `UNKNOWN_FIELD` fault if an unrecognized field is encountered during deserialization (default: skip unknown fields silently) |
+| `.rename_all`           | `CaseConvention` | Rename all fields using a naming convention                                         |
+
+**`CaseConvention` values:**
+
+| Value                   | Example output       |
+|-------------------------|----------------------|
+| `VERBATIM`              | `verbatim`           |
+| `KEBAB_CASE`            | `kebab-case`         |
+| `CAMEL_CASE`            | `camelCase`          |
+| `PASCAL_CASE`           | `PascalCase`         |
+| `SCREAMING_SNAKE_CASE`  | `SCREAMING_SNAKE`    |
+| `SNAKE_CASE`            | `snake_case`         |
+| `LOWER_CASE`            | `lower`              |
+| `UPPER_CASE`            | `UPPER`              |
+
+```c3
+struct UserRecord @DStructSer({ .rename_all = CAMEL_CASE }) {
+    String first_name;   // serialized as "firstName"
+    String last_name;    // serialized as "lastName"
+    int    birth_year;   // serialized as "birthYear"
+}
+```
+
+**Union attributes:**
+
+Use `@DField({ .tagged_by = "field" })` on a union member to enable tagged dispatch — the value of the named sibling field determines which union member is active (0-based ordinal index into union members).
+
+Three patterns are supported:
+
+*Pattern A — named union field (active member wrapped in a nested object):*
+
+```c3
+struct Message {
+  int kind;
+  union payload @DField({ .tagged_by = "kind" }) {
+    int    count;
+    double ratio;
+    String text;
+  }
+}
+// kind=0 → {"kind":0,"payload":{"count":42}}
+// kind=2 → {"kind":2,"payload":{"text":"hi"}}
+```
+
+*Pattern B — anonymous union field (active member flattened into parent):*
+
+```c3
+struct Message {
+  int kind;
+  union @DField({ .tagged_by = "kind" }) {
+    int    count;
+    double ratio;
+    String text;
+  }
+}
+// kind=0 → {"kind":0,"count":42}
+// kind=2 → {"kind":2,"text":"hi"}
+```
+
+*Pattern C — pre-defined union type with `@DUnion({ .inlined = true })` (active value inlined without wrapping):*
+
+```c3
+union Variant @DUnion({ .inlined = true }) {
+  int    count;
+  struct point { int x; int y; }
+  String label;
+}
+
+struct Response {
+  int     tag;
+  Variant val @DField({ .tagged_by = "tag" });
+}
+// tag=1 → {"tag":1,"val":{"x":1,"y":2}}
+```
+
+> Note: when deserializing an inlined union field, the tag field **must** come before the tagged value.
+
+| Attribute      | Description                                              |
+|----------------|----------------------------------------------------------|
+| `@DUnion`      | Apply union config to both serialization and deserialization |
+| `@DUnionSer`   | Apply to serialization only                              |
+| `@DUnionDes`   | Apply to deserialization only                            |
+
+**Union attribute options (`DUnionConfig` struct):**
+
+| Option      | Type   | Description                                                                     |
+|-------------|--------|---------------------------------------------------------------------------------|
+| `.inlined`  | `bool` | Inline the active member's value directly into the parent (no wrapping object)  |
 
 ## Installation
 
@@ -161,27 +260,30 @@ Get started with dessert:
 
 ### 1. Define Your Struct
 
-Implement the `serialize` and `deserialize` methods using the `impl_serialize` and `impl_deserialize` macros:
+Use `$expand(derive(...))` to automatically generate `serialize` and `deserialize` methods:
 
 ```c3
+import derive;
+
+$expand(derive(Animal::name, dessert));
 struct Animal {
     String name;
     String specie;
 }
+```
 
-fn void? Animal.serialize(&self, Serializer serializer) => 
-    ser::impl_serialize(self, serializer);
+`dessert` derives both methods. Use `dessert::serialize` or `dessert::deserialize` to derive only one:
 
-fn void? Animal.deserialize(&self, Deserializer deserializer) => 
-    des::impl_deserialize(self, deserializer);
+```c3
+$expand(derive(Animal::name, dessert::serialize));   // serialize only
+$expand(derive(Animal::name, dessert::deserialize)); // deserialize only
 ```
 
 ### 2. Serialize to JSON
 
 ```c3
 Animal sharpie = { .specie = "Cat", .name = "Sharpie" };
-JsonSerializer s = json::serializer();
-JsonValue? json = ser::serialize(&s, sharpie);
+String json = ser::serialize(&&json::string_serializer(), sharpie)!!;
 ```
 
 ### 3. Serialize a Slice to CSV
@@ -217,18 +319,15 @@ module example;
 import std;
 import dessert;
 import json;
+import derive;
 
+$expand(derive(Animal::name, dessert));
 struct Animal {
   String name;
   String specie;
 }
 
-fn void? Animal.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
-
-fn void? Animal.deserialize(&self, Deserializer deserializer) => 
-  des::impl_deserialize(self, deserializer);
-
+$expand(derive(Person::name, dessert));
 struct Person {
   int age;
   String name;
@@ -237,28 +336,15 @@ struct Person {
   bool is_cool @DField({ .skip = true });
 }
 
-fn void? Person.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
-
-fn void? Person.deserialize(&self, Deserializer deserializer) =>
-  des::impl_deserialize(self, deserializer);
-
 fn int main(String[] args) {
   Animal sharpie = { .name = "Sharpie", .specie = "Cat" };
   Person connor = { .age = 20, .name = "Connor", .is_cool = true };
   connor.pets = { sharpie };
 
-  JsonSerializer s = json::serializer();
-  JsonValue? json = ser::serialize(&s, connor);
-  if (catch json) {
-    io::printn("Error serializing");
-    return -1;
-  }
-  
-  json.print()!!;
-  io::printn();
-  
-  Person? p = des::deserialize{Person}(&&json::deserializer(json.to_string()));
+  String json = ser::serialize(&&json::string_serializer(), connor)!!;
+  io::printn(json);
+
+  Person? p = des::deserialize{Person}(&&json::deserializer(json));
   if (catch p) {
     io::printn("Error deserializing");
     return -1;
@@ -388,6 +474,7 @@ Dessert uses C3's fault system for error handling:
 | `DUPLICATED_KEY`         | `des`          | Duplicate key found during deserialization       |
 | `INVALID_ENUM_VALUE`     | `des`          | Enum name not found during deserialization       |
 | `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
+| `INLINED_UNION_BEFORE_TAG` | `des`        | Inlined union appeared before its tag field in the input |
 | `INVALID_CSV_TYPE`       | `dessert::csv` | Unsupported value type during CSV serialization  |
 | `INVALID_JSON_TYPE`      | `json`         | Invalid JSON structure                           |
 | `INVALID_OBJECT`         | `json`         | Expected JSON object                             |
@@ -401,9 +488,11 @@ Dessert uses C3's fault system for error handling:
 
 ## Best Practices
 
-1. **Always implement both interfaces**: For full round-trip support, implement both the `serialize` and the `deserialize` methods.
+1. **Use `derive` for full round-trip support**: `$expand(derive(MyStruct::name, dessert))` generates both `serialize` and `deserialize` at once with no boilerplate.
 
 2. **Use skip for sensitive data**: Mark fields that shouldn't be serialized (e.g., passwords) with `.skip = true`.
+
+3. **Tag fields before union fields**: When deserializing tagged unions, the tag field must appear before the union field in the JSON input. If using `@DUnion({ .inlined = true })`, the tag must also appear first in the wire format to avoid `INLINED_UNION_BEFORE_TAG`.
 
 ## Roadmap
 
@@ -425,8 +514,9 @@ Dessert uses C3's fault system for error handling:
 - [x] Skip unknown fields during deserialization (default)
 - [x] Deny unknown fields via `@DStruct({ .deny_unknown_fields = true })`
 - [x] Deserialize arbitrary JSON into `Object*`
-- [ ] Serialize union fields
-- [ ] Field aliases during deserialization
+- [x] Serialize/deserialize tagged union fields (named, anonymous, inlined)
+- [x] Field flattening via `@DField({ .flatten = true })`
+- [x] Bulk field rename via `@DStruct({ .rename_all = CAMEL_CASE })`
 - [ ] Default values for missing fields
 
 ## License

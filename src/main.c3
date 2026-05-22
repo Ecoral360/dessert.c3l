@@ -4,16 +4,11 @@ import dessert;
 import json;
 import derive;
 
+$expand(derive(Animal::name, dessert));
 struct Animal {
   String name;
   String specie;
 }
-
-fn void? Animal.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
-
-fn void? Animal.deserialize(&self, Deserializer deserializer) => 
-  des::impl_deserialize(self, deserializer);
 
 struct Person {
   int age;
