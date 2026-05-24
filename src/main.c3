@@ -15,7 +15,7 @@ struct Person {
   String name;
   Animal[] pets;
   int x;
-  union @DField({ .tagged_by = "x" }) {
+  union @DField({ .tagged = { .by = "x" } }) {
     int foo;
     double bar;
   }
@@ -66,12 +66,12 @@ struct Person {
 //   }
 // }
 
-union MyUnion @DUnion({ .inlined = true }) {
+union MyUnion {
   int first;
   struct second {
     int x;
   }
-  String third;
+  // String third;
 }
 
 $expand(derive(Foo::name, dessert));
@@ -79,14 +79,21 @@ struct Foo {
   int bar;
 }
 
+$expand(derive(Bar::name, dessert));
+enum Bar : (String name) {
+  FIRST { "first" },
+  SECOND { "second" },
+  THIRD { "third" },
+}
+
 $expand(derive(Request::name, dessert));
 struct Request {
-  int kind;
-  MyUnion p @DField({ .tagged_by = "kind" });
+  Bar kind;
+  MyUnion p @DField({ .tagged = { .by = "kind", .inlined = true, .match_by = DESCRIPTION } });
 }
 
 fn void main() {
-  Request req = { .kind = 1, .p = {.second = { .x = 2 }} };
+  Request req = { .kind = THIRD, .p = {.second = { .x = 2 }} };
   String s = ser::serialize(&&json::string_serializer(), req)!!;
   io::printn(s);
 

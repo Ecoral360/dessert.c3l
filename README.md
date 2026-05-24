@@ -176,16 +176,33 @@ struct UserRecord @DStructSer({ .rename_all = CAMEL_CASE }) {
 
 **Union attributes:**
 
-Use `@DField({ .tagged_by = "field" })` on a union member to enable tagged dispatch — the value of the named sibling field determines which union member is active (0-based ordinal index into union members).
+Use `@DField({ .tagged = { .by = "field" } })` on a union member to enable tagged dispatch — the value of the named sibling field determines which union member is active. All union configuration lives in the `tagged` sub-struct of `@DField`.
 
-Three patterns are supported:
+**`DFieldUnionConfig` options (used as `.tagged = { ... }`):**
 
-*Pattern A — named union field (active member wrapped in a nested object):*
+| Option       | Type          | Description                                                                          |
+|--------------|---------------|--------------------------------------------------------------------------------------|
+| `.by`        | `String`      | Name of the sibling field whose value selects the active union member (**required**) |
+| `.inlined`   | `bool`        | Inline the active member's value directly (no wrapping object, `false` by default)  |
+| `.match_by`  | `DessertEnum` | How to match the tag value to a union member: `ORDINAL` (default when tag is int), `DESCRIPTION`, or `FIELD` |
+| `.field`     | `String`      | Associated enum field name; required when `.match_by = FIELD`                        |
+
+**`match_by` modes:**
+
+| Value         | Behavior                                                                                           |
+|---------------|----------------------------------------------------------------------------------------------------|
+| `ORDINAL`     | Cast tag to `sz`; select member by 0-based index. Used automatically for non-enum tags.           |
+| `DESCRIPTION` | Switch on the enum value itself; union member names uppercased must match enum value names.        |
+| `FIELD`       | Switch on `tag.field_name` (a `String`); must equal the union member name exactly.                |
+
+**Three output patterns:**
+
+*Pattern A — named union field, not inlined (active member wrapped in a nested object):*
 
 ```c3
 struct Message {
   int kind;
-  union payload @DField({ .tagged_by = "kind" }) {
+  union payload @DField({ .tagged = { .by = "kind" } }) {
     int    count;
     double ratio;
     String text;
@@ -200,7 +217,7 @@ struct Message {
 ```c3
 struct Message {
   int kind;
-  union @DField({ .tagged_by = "kind" }) {
+  union @DField({ .tagged = { .by = "kind" } }) {
     int    count;
     double ratio;
     String text;
@@ -210,10 +227,10 @@ struct Message {
 // kind=2 → {"kind":2,"text":"hi"}
 ```
 
-*Pattern C — pre-defined union type with `@DUnion({ .inlined = true })` (active value inlined without wrapping):*
+*Pattern C — named union field with `.inlined = true` (active value inlined, no wrapping object):*
 
 ```c3
-union Variant @DUnion({ .inlined = true }) {
+union Variant {
   int    count;
   struct point { int x; int y; }
   String label;
@@ -221,24 +238,47 @@ union Variant @DUnion({ .inlined = true }) {
 
 struct Response {
   int     tag;
-  Variant val @DField({ .tagged_by = "tag" });
+  Variant val @DField({ .tagged = { .by = "tag", .inlined = true } });
 }
+// tag=0 → {"tag":0,"val":42}
 // tag=1 → {"tag":1,"val":{"x":1,"y":2}}
 ```
 
-> Note: when deserializing an inlined union field, the tag field **must** come before the tagged value.
+*Pattern D — enum tag with `match_by = DESCRIPTION` (match by enum value name):*
 
-| Attribute      | Description                                              |
-|----------------|----------------------------------------------------------|
-| `@DUnion`      | Apply union config to both serialization and deserialization |
-| `@DUnionSer`   | Apply to serialization only                              |
-| `@DUnionDes`   | Apply to deserialization only                            |
+```c3
+enum Shape { CIRCLE, SQUARE, TRIANGLE }
+$expand(derive(Shape::name, dessert));
 
-**Union attribute options (`DUnionConfig` struct):**
+struct Drawing {
+  Shape kind;
+  union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match_by = DESCRIPTION } }) {
+    int    circle;    // matched by enum value CIRCLE
+    double square;    // matched by enum value SQUARE
+    String triangle;  // matched by enum value TRIANGLE
+  }
+}
+```
 
-| Option      | Type   | Description                                                                     |
-|-------------|--------|---------------------------------------------------------------------------------|
-| `.inlined`  | `bool` | Inline the active member's value directly into the parent (no wrapping object)  |
+*Pattern E — enum tag with `match_by = FIELD` (match by enum associated String field):*
+
+```c3
+enum Format : (String mime) {
+  JSON_FMT { "json_fmt" },
+  CSV_FMT  { "csv_fmt"  },
+}
+$expand(derive(Format::name, dessert));
+
+struct Output {
+  Format kind;
+  union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match_by = FIELD, .field = "mime" } }) {
+    int    json_fmt;  // matched when kind.mime == "json_fmt"
+    String csv_fmt;   // matched when kind.mime == "csv_fmt"
+  }
+}
+```
+
+> **Note:** when deserializing an inlined union field, the tag field **must** appear before the union field in the input.
 
 ## Installation
 
@@ -474,7 +514,8 @@ Dessert uses C3's fault system for error handling:
 | `DUPLICATED_KEY`         | `des`          | Duplicate key found during deserialization       |
 | `INVALID_ENUM_VALUE`     | `des`          | Enum name not found during deserialization       |
 | `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
-| `INLINED_UNION_BEFORE_TAG` | `des`        | Inlined union appeared before its tag field in the input |
+| `INLINED_UNION_BEFORE_TAG`  | `des`        | Inlined union appeared before its tag field in the input |
+| `UNMAPPED_UNION_VARIANT`    | `ser` / `des`| Tag value matched no union member                        |
 | `INVALID_CSV_TYPE`       | `dessert::csv` | Unsupported value type during CSV serialization  |
 | `INVALID_JSON_TYPE`      | `json`         | Invalid JSON structure                           |
 | `INVALID_OBJECT`         | `json`         | Expected JSON object                             |
