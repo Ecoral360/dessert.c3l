@@ -163,12 +163,12 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
             $if $member.name == $field_name:
               var field_value = deserialize{$member.type}(deserializer)!;
               $if $enum_config.fallback.len > 0:
-              if (try v = $type.lookup_field($field_name, field_value)) {
-                *value = v;
-              }
-              $endif
+                if (try v = $type.lookup_field($field_name, field_value)) {
+                  *value = v;
+                }
+              $else
                 *value =  $type.lookup_field($field_name, field_value)!;
-              return;
+              $endif
             $endif
           $endforeach
       $endswitch
