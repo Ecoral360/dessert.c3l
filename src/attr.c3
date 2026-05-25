@@ -87,6 +87,7 @@ attrdef @DFieldDes(DFieldConfig config) = @tag("dessert:des", config);
 struct DEnumConfig {
   DessertEnum as;
   String field;
+  String fallback;
 }
 
 attrdef @DEnum(DEnumConfig config) = @tag("dessert:ser:enum", config), @tag("dessert:des:enum", config);
