@@ -108,6 +108,34 @@ struct DWithDirInvalid {
 }
 fn void? DWithDirInvalid.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+// Fallback enum (DESCRIPTION mode): unknown variant → fallback value
+enum DStatus @DEnumDes({ .fallback = "UNKNOWN" }) {
+  ACTIVE,
+  INACTIVE,
+  UNKNOWN,
+}
+fn void? DStatus.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
+
+struct DWithStatus {
+  String  label;
+  DStatus status;
+}
+fn void? DWithStatus.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
+
+// Fallback enum (FIELD mode): unknown field value → fallback value
+enum DPriority : (String code) @DEnumDes({ .as = FIELD, .field = "code", .fallback = "NONE" }) {
+  HIGH   { "high"   },
+  MEDIUM { "medium" },
+  NONE   { ""       },
+}
+fn void? DPriority.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
+
+struct DWithPriority {
+  String    label;
+  DPriority priority;
+}
+fn void? DWithPriority.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
+
 // Maybe field
 struct DWithMaybe {
   String    name;
@@ -409,6 +437,56 @@ fn void test_des_enum_field_all_variants() @test {
     DWithColor v = des::deserialize{DWithColor}(&&json::deserializer(js))!!;
     assert(v.color == expected[i]);
   }
+}
+
+// ── Tests: enum fallback deserialization ─────────────────────────────────────
+// .fallback = "VARIANT" → use that variant when JSON doesn't match any known name.
+
+fn void test_des_enum_fallback_known_variant() @test {
+  // Known variant still maps correctly
+  const String JSON = `{"label": "a", "status": "ACTIVE"}`;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  assert(v.status == DStatus.ACTIVE);
+}
+
+fn void test_des_enum_fallback_known_variant_inactive() @test {
+  const String JSON = `{"label": "b", "status": "INACTIVE"}`;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  assert(v.status == DStatus.INACTIVE);
+}
+
+fn void test_des_enum_fallback_unknown_uses_fallback() @test {
+  // "DEPRECATED" is not a valid DStatus → fallback UNKNOWN used, no fault
+  const String JSON = `{"label": "c", "status": "DEPRECATED"}`;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  assert(v.status == DStatus.UNKNOWN);
+}
+
+fn void test_des_enum_fallback_empty_string_uses_fallback() @test {
+  // Empty string doesn't match any variant → fallback
+  const String JSON = `{"label": "d", "status": ""}`;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  assert(v.status == DStatus.UNKNOWN);
+}
+
+fn void test_des_enum_fallback_field_known() @test {
+  // Known code value maps correctly
+  const String JSON = `{"label": "e", "priority": "high"}`;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  assert(v.priority == DPriority.HIGH);
+}
+
+fn void test_des_enum_fallback_field_known_medium() @test {
+  const String JSON = `{"label": "f", "priority": "medium"}`;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  assert(v.priority == DPriority.MEDIUM);
+}
+
+fn void test_des_enum_fallback_field_unknown_uses_fallback() @test {
+  // "critical" is not a valid DPriority code → fallback NONE used, no fault
+  const String JSON = `{"label": "g", "priority": "critical"}`;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  assert(v.priority == DPriority.NONE);
 }
 
 // ── Tests: Maybe ──────────────────────────────────────────────────────────────

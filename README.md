@@ -34,6 +34,7 @@ The library is built around two core interfaces:
 - Support for `Maybe` fields
 - Support for slice/array/List fields
 - Enum deserialization (as name, ordinal, or associated field)
+- Enum fallback variant for unknown values via `.fallback`
 - Tagged union deserialization (named, anonymous, and inlined patterns)
 - Field renaming support (different name in the format and in C3)
 - Duplicate key detection
@@ -124,10 +125,27 @@ enum Color @DEnum({ .as = DESCRIPTION }) {
 
 **Enum attribute options (`DEnumConfig` struct):**
 
-| Option    | Type          | Description                                                                          |
-|-----------|---------------|--------------------------------------------------------------------------------------|
-| `.as`     | `DessertEnum` | How to represent the enum: `DESCRIPTION` (default), `ORDINAL`, or `FIELD`           |
-| `.field`  | `String`      | Name of the associated field to use when `.as = FIELD`                               |
+| Option      | Type          | Description                                                                          |
+|-------------|---------------|--------------------------------------------------------------------------------------|
+| `.as`       | `DessertEnum` | How to represent the enum: `DESCRIPTION` (default), `ORDINAL`, or `FIELD`           |
+| `.field`    | `String`      | Name of the associated field to use when `.as = FIELD`                               |
+| `.fallback` | `String`      | Name of the variant to use when the JSON value doesn't match any known variant (deserialization only). If not set, `INVALID_ENUM_VALUE` is raised instead. |
+
+```c3
+// Unknown JSON variant → UNKNOWN instead of raising INVALID_ENUM_VALUE
+enum Status @DEnumDes({ .fallback = "UNKNOWN" }) {
+    ACTIVE,
+    INACTIVE,
+    UNKNOWN,
+}
+
+// Unknown field value → NONE instead of raising INVALID_ENUM_VALUE
+enum Priority : (String code) @DEnumDes({ .as = FIELD, .field = "code", .fallback = "NONE" }) {
+    HIGH   { "high"   },
+    MEDIUM { "medium" },
+    NONE   { ""       },
+}
+```
 
 **Struct attributes:**
 
@@ -588,6 +606,7 @@ Dessert uses C3's fault system for error handling:
 - [x] Validate field
 - [x] Deserialize from JSON
 - [x] Deserialize enum fields (as name, ordinal, or associated field)
+- [x] Enum fallback variant via `@DEnum({ .fallback = "VARIANT" })`
 - [x] Full primitive type support (all integer, float, string variants)
 - [x] Skip unknown fields during deserialization (default)
 - [x] Deny unknown fields via `@DStruct({ .deny_unknown_fields = true })`
