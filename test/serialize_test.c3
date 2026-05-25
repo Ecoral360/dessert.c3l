@@ -793,6 +793,12 @@ enum SMBFieldTag : (String variant) {
   FLD_A { "fld_a" },
   FLD_B { "fld_b" },
   FLD_C { "fld_c" },
+  FLD_D { "fld_d" },
+}
+
+$expand(derive(SubS::name, dessert));
+struct SubS {
+  String s;
 }
 
 struct SMatchByField {
@@ -800,7 +806,10 @@ struct SMatchByField {
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "variant" } } }) {
     int    fld_a;   // matched when kind.variant == "fld_a"
     double fld_b;   // matched when kind.variant == "fld_b"
-    String fld_c;   // matched when kind.variant == "fld_c"
+    struct fld_c {  // matched when kind.variant == "fld_c"
+      String s;
+    }
+    SubS fld_d;     // matched when kind.variant == "fld_d"
   }
 }
 fn void? SMatchByField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
@@ -833,14 +842,23 @@ fn void test_ser_match_by_field_second() @test {
 
 fn void test_ser_match_by_field_third() @test {
   // FLD_C.variant = "fld_c" → member fld_c; output: {"kind":"FLD_C","payload":"test"}
-  SMatchByField s = { .kind = FLD_C, .payload = { .fld_c = "test" } };
+  SMatchByField s = { .kind = FLD_C, .payload = { .fld_c.s = "test" } };
   JsonSerializer js = json::serializer();
   JsonValue j = ser::serialize(&js, s)!!;
   defer j.free();
 
   assert(j.value.d.get("kind")!!.value.s == "FLD_C");
-  assert(j.value.d.get("payload")!!.kind == JsonValueKind.STRING);
-  assert(j.value.d.get("payload")!!.value.s == "test");
+  assert(j.value.d.get("payload")!!.kind == JsonValueKind.DICT);
+  assert(j.value.d.get("payload").value.d.get("s")!!.value.s == "test");
+}
+
+fn void test_ser_match_by_field_forth_string() @test {
+  // FLD_C.variant = "fld_c" → member fld_c; output: {"kind":"FLD_C","payload":"test"}
+  SMatchByField s = { .kind = FLD_D, .payload = { .fld_d.s = "test" } };
+  JsonStringSerializer js = json::string_serializer();
+  String j = ser::serialize(&js, s)!!;
+
+  assert(j == `{"kind":"FLD_D","payload":{"s":"test"}}`);
 }
 
 // ── Tests: tagged union unmapped.as ─────────────────────────────────────────
