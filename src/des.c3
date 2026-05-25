@@ -115,7 +115,7 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
       var $type = $Typeof(value)::inner;
       var $enum_config = $type.has_tag("dessert:des:enum") ??? $type.get_tag("dessert:des:enum") : (DEnumConfig) {};
 
-      $if $enum_config.fallback.len > 0 &&& !$defined($type.lookup_field(description, $enum_config.fallback)):
+      $if $enum_config.fallback.len > 0 &&& !$defined($Typeof(value).$eval($enum_config.fallback)):
         $error @sprintf("The fallback of an enum must be a valid member of that enum ('%s' is not a member of %s)", $enum_config.fallback, $type.name);
       $endif
 
