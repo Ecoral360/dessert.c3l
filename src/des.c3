@@ -270,8 +270,8 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
 
         $default:
           $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
-          if (catch next_value) {
-            io::eprintfn("Error deserializing key: %s", next_key);
+          if (catch e = next_value) {
+            io::eprintfn("Error [%s] deserializing key: %s (%s)", e, next_key, $member.type.name);
             next_value!;
             return false;
           }
