@@ -115,8 +115,19 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
       var $type = $Typeof(value)::inner;
       var $enum_config = $type.has_tag("dessert:des:enum") ??? $type.get_tag("dessert:des:enum") : (DEnumConfig) {};
 
-      $if $enum_config.fallback.len > 0 &&& !$defined($Typeof(value).$eval($enum_config.fallback)):
-        $error @sprintf("The fallback of an enum must be a valid member of that enum ('%s' is not a member of %s)", $enum_config.fallback, $type.name);
+      $Typefrom($Typeof(value)::inner) $fallback;
+      bool $found = false;
+      $if $enum_config.fallback.len > 0:
+        $foreach $v : $type.values:
+          $if $v.description == $enum_config.fallback:
+            $fallback = $v;
+            $found = true;
+          $endif
+        $endforeach
+        $if !$found:
+          $error @sprintf("The fallback of an enum must be a valid member of that enum ('%s' is not a member of %s)", $enum_config.fallback, $type.name);
+        $endif
+        *value = $fallback;
       $endif
 
       $switch $enum_config.as:
@@ -132,7 +143,6 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
 
           if (found == -1) {
             $if $enum_config.fallback.len > 0:
-              *value = $type.$eval($enum_config.fallback);
               return;
             $else
               return INVALID_ENUM_VALUE~;
@@ -152,14 +162,15 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
           $foreach $member : $type.members:
             $if $member.name == $field_name:
               var field_value = deserialize{$member.type}(deserializer)!;
-              *value = $type.lookup_field($field_name, field_value)!;
+              $if $enum_config.fallback.len > 0:
+              if (try v = $type.lookup_field($field_name, field_value)) {
+                *value = v;
+              }
+              $endif
+                *value =  $type.lookup_field($field_name, field_value)!;
               return;
             $endif
           $endforeach
-
-          $if $enum_config.fallback.len > 0:
-            *value = $type.$eval($enum_config.fallback);
-          $endif
       $endswitch
 
     $case $Typeof(value)::inner.kind == UNION:
