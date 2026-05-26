@@ -20,7 +20,7 @@ struct JsonValue (Printable) {
     double f;
     bool b;
     String s;
-    LinkedHashMap{String, JsonValue} d;
+    OrderedMap{String, JsonValue} d;
     List{JsonValue} l;
   }
 
@@ -245,7 +245,7 @@ fn void? JsonSerializer.serialize_string(&self, String s) @dynamic {
 }
 
 fn void? JsonSerializer.struct_start(&self, String name) @dynamic {
-  LinkedHashMap{String, JsonValue} d;
+  OrderedMap{String, JsonValue} d;
   d.init(tmem);
   self.output.push({ .kind = JsonValueKind.DICT, .value = { .d = d } });
 }

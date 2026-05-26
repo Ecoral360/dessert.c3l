@@ -78,14 +78,14 @@ macro impl_serialize(s, Serializer serializer) {
 
         $if !$config.skip:
           $if $config.validator.len > 0: 
-            if (!s.$eval($config.validator)($member.get(*s))) {
+            if (!s.$eval($config.validator)(s.$member)) {
               return VALIDATOR_ERROR~;
             }
           $endif
 
           $switch:
             $case $config.skip_if_empty:
-              if (!@is_empty($member.get(*s))) {
+              if (!@is_empty(s.$member)) {
                 @serialize_field(serializer, $config, s, $member, $struct_config)!;
               }
 
@@ -128,14 +128,14 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
           serializer.struct_start($member.type.name)!;
         $endif
 
-        @impl_serialize_struct($member.type, &$member.get(*s), serializer, $struct_config)!;
+        @impl_serialize_struct($member.type, &s.$member, serializer, $struct_config)!;
 
         $if !$is_flatten:
           serializer.struct_end($member.type.name)!;
         $endif
 
       $default:
-        serialize_value(serializer, $member.get(*s), $config)!;
+        serialize_value(serializer, s.$member, $config)!;
     $endswitch
   $endif
 
@@ -153,14 +153,14 @@ macro @impl_serialize_struct($Type, s, Serializer serializer, DStructConfig $str
     DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
     $if !$config.skip:
       $if $config.validator.len > 0: 
-        if (!s.$eval($config.validator)($member.get(s))) {
+        if (!s.$eval($config.validator)(s.$member)) {
           return VALIDATOR_ERROR~;
         }
       $endif
 
       $switch:
         $case $config.skip_if_empty:
-          if (!@is_empty($member.get(*s))) {
+          if (!@is_empty(s.$member)) {
             @serialize_field(serializer, $config, s, $member, $struct_config)!;
           }
 
@@ -214,9 +214,9 @@ macro @impl_serialize_union($UType, s, Serializer serializer, $member, DFieldCon
       $foreach $i, $m : $UType::members:
         $the_switch +++= @sprintf("case %s:\n", $i);
         $if $config.tagged.inlined:
-          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, $UType::members[%s].get($member.get(*s)), serializer)!;\n", $i, $i);
+          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, s.$member.$eval($UType::members[%s].name), serializer)!;\n", $i, $i);
         $else
-          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &$member.get(*s), $UType::members[%s], $struct_config)!;\n", $i);
+          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &s.$member, $UType::members[%s], $struct_config)!;\n", $i);
         $endif
       $endforeach
 
@@ -230,9 +230,9 @@ macro @impl_serialize_union($UType, s, Serializer serializer, $member, DFieldCon
       $foreach $i, $m : $UType::members:
         $the_switch +++= @sprintf("case %s:\n", utils::@str_to_upper($m.name));
         $if $config.tagged.inlined:
-          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, $UType::members[%s].get($member.get(*s)), serializer)!;\n", $i, $i);
+          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, s.$member.$eval($UType::members[%s].name), serializer)!;\n", $i, $i);
         $else
-          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &$member.get(*s), $UType::members[%s], $struct_config)!;\n", $i);
+          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &s.$member $UType::members[%s], $struct_config)!;\n", $i);
         $endif
       $endforeach
 
@@ -259,9 +259,9 @@ macro @impl_serialize_union($UType, s, Serializer serializer, $member, DFieldCon
       $foreach $i, $m : $UType::members:
         $the_switch +++= @sprintf("case \"%s\":\n", $m.name);
         $if $config.tagged.inlined:
-          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, $UType::members[%s].get($member.get(*s)), serializer)!;\n", $i, $i);
+          $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, s.$member.$eval($UType::members[%s].name), serializer)!;\n", $i, $i);
         $else
-          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &$member.get(*s), $UType::members[%s], $struct_config)!;\n", $i);
+          $the_switch +++= @sprintf("@serialize_field(serializer, $config, &s.$member, $UType::members[%s], $struct_config)!;\n", $i);
         $endif
       $endforeach
 

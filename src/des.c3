@@ -219,7 +219,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
 
   $if $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
     $foreach $m : $member.type.members:
-      if (@des_field(deserializer, &$member.get(*value), $m, next_key, {}, $member.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : $struct_config)!) return true;
+      if (@des_field(deserializer, &value.$member, $m, next_key, {}, $member.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : $struct_config)!) return true;
     $endforeach
   $endif
 
@@ -237,7 +237,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
           }
 
           var tag_value = value.$eval($config.tagged.by);
-          var next_value = $member.get(*value);
+          var next_value = value.$member;
 
           var $the_switch = "";
           var $UType = $member.type;
@@ -288,12 +288,12 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
 
           $expand($the_switch);
 
-          $member.set(*value, next_value);
+          value.$member = next_value;
 
         $case $member.type.kind == UNION &&& !$config.tagged.inlined:
         $case $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
         $case $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
-          impl_deserialize(&$member.get(*value), deserializer)!;
+          impl_deserialize(&value.$member, deserializer)!;
 
         $default:
           $Typefrom($member.type)? next_value = deserialize{$member.type}(deserializer);
@@ -303,7 +303,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
             return false;
           }
 
-          $member.set(*value, next_value);
+          value.$member = next_value;
 
       $endswitch
     $endif
