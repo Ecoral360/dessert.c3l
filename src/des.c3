@@ -45,6 +45,8 @@ interface Deserializer {
   fn ZString? next_zstring() @optional;
 
   fn float? next_float() @optional;
+
+  fn Allocator get_allocator() @optional;
 }
 
 faultdef VALIDATOR_ERROR;
@@ -118,7 +120,10 @@ macro deserialize(deserializer) <Output> {
   $endswitch
 }
 
-macro void? impl_deserialize(value, Deserializer deserializer) {
+<*
+  @require($defined(Deserializer d = deserializer))
+*>
+macro void? impl_deserialize(value, deserializer) {
   $if $Typeof(value)::kind != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif

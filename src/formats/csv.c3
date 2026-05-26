@@ -13,7 +13,7 @@ enum CSVValueKind {
 }
 
 alias CSVValueList = List{CSVValue};
-alias CSVDocument = OrderedMap{String, List{CSVValue}};
+alias CSVDocument = LinkedHashMap{String, List{CSVValue}};
 
 fn String CSVDocument.to_string(&self) {
   DString s;
@@ -100,7 +100,7 @@ fn CSVSerializer serializer() {
   List{CSVValue} output;
   output.init(tmem);
 
-  OrderedMap{String, CSVValueList} headers;
+  LinkedHashMap{String, CSVValueList} headers;
   headers.init(tmem);
 
   return { .output = output, .headers = headers };

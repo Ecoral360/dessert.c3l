@@ -101,6 +101,8 @@ enum Format : (String mime) {
 
 $expand(derive(Output::name, dessert));
 struct Output {
+  int* x;
+  // List{int} y;
   Format kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "mime" } } }) {
     int    json_fmt;  // matched when kind.mime == "json_fmt"
@@ -118,13 +120,19 @@ fn void main() {
   // io::printn(p.kind);
   // io::printn(p.p.first);
 
-  Output o = { .kind = JSON_FMT, .payload.json_fmt = 12 };
+  Output o = { .kind = JSON_FMT, .payload.json_fmt = 12, .x = &&22 };
   String s = ser::serialize(&&json::string_serializer(), o)!!;
   io::printn(s);
 
-  Output p = des::deserialize{Output}(&&json::deserializer(s))!!;
-  io::printn(string::from_struct(tmem, p));
-  io::printn(p.payload.json_fmt);
+  Output p;
+  @pool() {
+    p = des::deserialize{Output}(&&json::deserializer(mem, s))!!;
+  };
+
+  io::printfn("p.x=%d, o.x=%s", *p.x, *o.x);
+
+  // io::printn(string::from_struct(tmem, p));
+  // io::printn(p.payload.json_fmt);
 
   // Request req2 = { .kind = 2, .third = "Wow" };
   // s = ser::serialize(&&json::string_serializer(), req2)!!;
