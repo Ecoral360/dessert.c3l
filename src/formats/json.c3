@@ -96,13 +96,13 @@ fn String? JsonValue.to_string(self) {
     case NULL:
       return "null";
     case INT:
-      return string::format(mem, "%s", self.value.i);
+      return string::tformat("%s", self.value.i);
     case FLOAT:
-      return string::format(mem, "%s", self.value.f);
+      return string::tformat("%s", self.value.f);
     case BOOL:
-      return string::format(mem, "%s", self.value.b);
+      return string::tformat("%s", self.value.b);
     case STRING:
-      return string::format(mem, "\"%s\"", self.value.s.replace(mem, "\"", "\\\""));
+      return string::tformat("\"%s\"", self.value.s.treplace("\"", "\\\""));
     case ARRAY:
       DString s;
       s.init(tmem);
@@ -124,7 +124,7 @@ fn String? JsonValue.to_string(self) {
       
       int i = 0;
       self.value.d.@each_entry(; entry) {
-        s.append(string::format(mem, "\"%s\": ", entry.key.replace(mem, "\"", "\\\"")));
+        s.append(string::tformat("\"%s\": ", entry.key.treplace("\"", "\\\"")));
         s.append(entry.value.to_string()!);
         if (i < d_len - 1) {
           s.append(", ");
@@ -153,13 +153,13 @@ fn String to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priva
     case NULL:
       return "null";
     case INT:
-      return string::format(mem, "%d", self.value.i);
+      return string::tformat("%d", self.value.i);
     case FLOAT:
-      return string::format(mem, "%g", self.value.f);
+      return string::tformat("%g", self.value.f);
     case BOOL:
-      return string::format(mem, "%s", self.value.b ? "true" : "false");
+      return string::tformat("%s", self.value.b ? "true" : "false");
     case STRING:
-      return string::format(mem, "\"%s\"", self.value.s.replace(mem, "\"", "\\\""));
+      return string::tformat("\"%s\"", self.value.s.treplace("\"", "\\\""));
     case ARRAY:
       DString s;
       s.init(tmem);
@@ -184,7 +184,7 @@ fn String to_pretty_string(JsonValue self, int indent = 2, int depth = 0) @priva
       int i = 0;
       self.value.d.@each_entry(; entry) {
         s.append(inner_pad);
-        s.append(string::format(mem, "\"%s\": ", entry.key.replace(mem, "\"", "\\\"")));
+        s.append(string::tformat("\"%s\": ", entry.key.treplace("\"", "\\\"")));
         s.append(to_pretty_string(entry.value, indent: indent, depth: depth + 1));
         if (i < d_len - 1) s.append(",");
         s.append("\n");

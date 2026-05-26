@@ -17,7 +17,7 @@ alias CSVDocument = OrderedMap{String, List{CSVValue}};
 
 fn String CSVDocument.to_string(&self) {
   DString s;
-  s.init(mem);
+  s.init(tmem);
 
   long num_cols = self.len();
   long num_rows = 0;
@@ -25,7 +25,7 @@ fn String CSVDocument.to_string(&self) {
   // Header row
   int col_i = 0;
   self.@each_entry(; entry) {
-    s.append(string::format(mem, "\"%s\"", entry.key.replace(mem, "\"", "\\\"")));
+    s.append(string::tformat("\"%s\"", entry.key.treplace("\"", "\\\"")));
     if (col_i < num_cols - 1) s.append(",");
     if (num_rows == 0) num_rows = entry.value.len();
     col_i++;
@@ -64,13 +64,13 @@ fn String? CSVValue.to_string(self) {
     case NULL:
       return "null";
     case INT:
-      return string::format(mem, "%s", self.value.i);
+      return string::tformat("%s", self.value.i);
     case FLOAT:
-      return string::format(mem, "%s", self.value.f);
+      return string::tformat("%s", self.value.f);
     case BOOL:
-      return string::format(mem, "%s", self.value.b);
+      return string::tformat("%s", self.value.b);
     case STRING:
-      return string::format(mem, "\"%s\"", self.value.s.replace(mem, "\"", "\\\""));
+      return string::tformat("\"%s\"", self.value.s.treplace("\"", "\\\""));
     default:
       return NOT_FOUND~;
   }
@@ -138,7 +138,7 @@ fn void? CSVSerializer.serialize_slice_end(&self, long len) @dynamic {}
 fn void? CSVSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
   if (catch self.headers.get(name)) {
     List{CSVValue} csv_values;
-    csv_values.init(mem);
+    csv_values.init(tmem);
     self.headers.set(name, csv_values);
   }
 }

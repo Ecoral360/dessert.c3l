@@ -64,9 +64,9 @@ fn void t() @test {
 
   Person p = des::deserialize{Person}(&&json::tdeserializer(json.to_string()))!!;
 
-  io::printfn("%s\n%s", string::from_struct(mem, p), string::from_struct(mem, p.pets[0]));
+  io::printfn("%s\n%s", string::from_struct(tmem, p), string::from_struct(tmem, p.pets[0]));
 
-  io::printfn("%s", string::from_struct(mem, *p.friend));
+  io::printfn("%s", string::from_struct(tmem, *p.friend));
 
   assert(p.friend != null);
   assert(p.friend.name == "Amenda");
@@ -160,5 +160,5 @@ const String TEST_DATA_2 = `{
 
 fn void test_escape2() @test {
   Object* f = des::deserialize{Object*}(&&json::tdebug_deserializer(TEST_DATA_2))!!;
-  io::printfn("\nf => %s", string::from_struct(mem, f));
+  io::printfn("\nf => %s", string::from_struct(tmem, f));
 }
