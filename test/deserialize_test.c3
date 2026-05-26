@@ -165,67 +165,67 @@ fn void? DComplex.deserialize(&self, Deserializer deserializer) => des::impl_des
 // ── Tests: JSON primitives ────────────────────────────────────────────────────
 
 fn void test_des_bool_true() @test {
-  bool v = des::deserialize{bool}(&&json::deserializer("true"))!!;
+  bool v = des::deserialize{bool}(&&json::tdeserializer("true"))!!;
   assert(v == true);
 }
 
 fn void test_des_bool_false() @test {
-  bool v = des::deserialize{bool}(&&json::deserializer("false"))!!;
+  bool v = des::deserialize{bool}(&&json::tdeserializer("false"))!!;
   assert(v == false);
 }
 
 fn void test_des_long_positive() @test {
-  long v = des::deserialize{long}(&&json::deserializer("42"))!!;
+  long v = des::deserialize{long}(&&json::tdeserializer("42"))!!;
   assert(v == 42);
 }
 
 fn void test_des_long_negative() @test {
-  long v = des::deserialize{long}(&&json::deserializer("-100"))!!;
+  long v = des::deserialize{long}(&&json::tdeserializer("-100"))!!;
   assert(v == -100);
 }
 
 fn void test_des_double() @test {
-  double v = des::deserialize{double}(&&json::deserializer("2.718"))!!;
+  double v = des::deserialize{double}(&&json::tdeserializer("2.718"))!!;
   double diff = v - 2.718;
   if (diff < 0) diff = -diff;
   assert(diff < 1e-9);
 }
 
 fn void test_des_string() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"hello"`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"hello"`))!!;
   assert(v == "hello");
 }
 
 fn void test_des_empty_string() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`""`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`""`))!!;
   assert(v.len == 0);
 }
 
 // ── Tests: JSON escape sequences in strings ───────────────────────────────────
 
 fn void test_des_escape_newline() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"line1\nline2"`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"line1\nline2"`))!!;
   assert(v.len == 11); // "line1" + '\n' + "line2"
   assert(v[5] == '\n');
 }
 
 fn void test_des_escape_tab() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"col1\tcol2"`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"col1\tcol2"`))!!;
   assert(v[4] == '\t');
 }
 
 fn void test_des_escape_backslash() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"a\\b"`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"a\\b"`))!!;
   assert(v == `a\b`);
 }
 
 fn void test_des_escape_quote() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"say \"hi\""`) )!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"say \"hi\""`) )!!;
   assert(v == `say "hi"`);
 }
 
 fn void test_des_escape_carriage_return() @test {
-  String v = des::deserialize{String}(&&json::deserializer(`"a\rb"`))!!;
+  String v = des::deserialize{String}(&&json::tdeserializer(`"a\rb"`))!!;
   assert(v[1] == '\r');
 }
 
@@ -233,7 +233,7 @@ fn void test_des_escape_carriage_return() @test {
 
 fn void test_des_simple_struct() @test {
   const String JSON = `{"x": 7, "y": -3}`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 7);
   assert(p.y == -3);
 }
@@ -241,14 +241,14 @@ fn void test_des_simple_struct() @test {
 fn void test_des_struct_whitespace() @test {
   // whitespace around tokens must be ignored
   const String JSON = `{  "x" :  42 ,  "y"  :  0  }`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 42);
   assert(p.y == 0);
 }
 
 fn void test_des_nested_struct() @test {
   const String JSON = `{"label": "mybox", "center": {"x": 5, "y": 8}}`;
-  DBox b = des::deserialize{DBox}(&&json::deserializer(JSON))!!;
+  DBox b = des::deserialize{DBox}(&&json::tdeserializer(JSON))!!;
   assert(b.label == "mybox");
   assert(b.center.x == 5);
   assert(b.center.y == 8);
@@ -256,14 +256,14 @@ fn void test_des_nested_struct() @test {
 
 fn void test_des_null_pointer() @test {
   const String JSON = `{"name": "test", "extra": null}`;
-  DWithPointer wp = des::deserialize{DWithPointer}(&&json::deserializer(JSON))!!;
+  DWithPointer wp = des::deserialize{DWithPointer}(&&json::tdeserializer(JSON))!!;
   assert(wp.name == "test");
   assert(wp.extra == null);
 }
 
 fn void test_des_non_null_pointer() @test {
   const String JSON = `{"name": "test", "extra": {"x": 11, "y": 22}}`;
-  DWithPointer wp = des::deserialize{DWithPointer}(&&json::deserializer(JSON))!!;
+  DWithPointer wp = des::deserialize{DWithPointer}(&&json::tdeserializer(JSON))!!;
   assert(wp.name == "test");
   assert(wp.extra != null);
   assert(wp.extra.x == 11);
@@ -272,7 +272,7 @@ fn void test_des_non_null_pointer() @test {
 
 fn void test_des_array() @test {
   const String JSON = `{"tag": "pts", "items": [{"x":1,"y":2},{"x":3,"y":4}]}`;
-  DWithArray wa = des::deserialize{DWithArray}(&&json::deserializer(JSON))!!;
+  DWithArray wa = des::deserialize{DWithArray}(&&json::tdeserializer(JSON))!!;
   assert(wa.tag == "pts");
   assert(wa.items.len == 2);
   assert(wa.items[0].x == 1);
@@ -283,14 +283,14 @@ fn void test_des_array() @test {
 
 fn void test_des_empty_array() @test {
   const String JSON = `{"tag": "empty", "items": []}`;
-  DWithArray wa = des::deserialize{DWithArray}(&&json::deserializer(JSON))!!;
+  DWithArray wa = des::deserialize{DWithArray}(&&json::tdeserializer(JSON))!!;
   assert(wa.items.len == 0);
 }
 
 fn void test_des_missing_field_stays_default() @test {
   // field "y" absent from JSON → stays at 0
   const String JSON = `{"x": 5}`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 5);
   assert(p.y == 0);
 }
@@ -300,7 +300,7 @@ fn void test_des_missing_field_stays_default() @test {
 fn void test_des_skip_field_with_key_present() @test {
   // "dropped" key is in the JSON but must not be assigned to the struct field
   const String JSON = `{"kept": "visible", "dropped": "invisible"}`;
-  DWithSkipDes? v = des::deserialize{DWithSkipDes}(&&json::deserializer(JSON));
+  DWithSkipDes? v = des::deserialize{DWithSkipDes}(&&json::tdeserializer(JSON));
   if (catch e = v) {
     assert(e == json::INVALID_FIELD);
   } else {
@@ -311,7 +311,7 @@ fn void test_des_skip_field_with_key_present() @test {
 fn void test_des_skip_field_with_key_absent() @test {
   // "dropped" key is absent → field stays at default
   const String JSON = `{"kept": "only"}`;
-  DWithSkipDes v = des::deserialize{DWithSkipDes}(&&json::deserializer(JSON))!!;
+  DWithSkipDes v = des::deserialize{DWithSkipDes}(&&json::tdeserializer(JSON))!!;
   assert(v.kept == "only");
   assert(v.dropped == "");
 }
@@ -319,7 +319,7 @@ fn void test_des_skip_field_with_key_absent() @test {
 fn void test_des_rename() @test {
   // JSON uses the renamed keys "alias" and "num"
   const String JSON = `{"alias": "hello", "num": 7}`;
-  DWithRenameDes v = des::deserialize{DWithRenameDes}(&&json::deserializer(JSON))!!;
+  DWithRenameDes v = des::deserialize{DWithRenameDes}(&&json::tdeserializer(JSON))!!;
   assert(v.original == "hello");
   assert(v.count == 7);
 }
@@ -327,7 +327,7 @@ fn void test_des_rename() @test {
 fn void test_des_extra_fields_ignored() @test {
   // extra JSON fields not in the struct are silently skipped
   const String JSON = `{"name": "alice", "value": 10, "unknown_field": "surprise", "another": 99}`;
-  DDenyUnknown? v = des::deserialize{DDenyUnknown}(&&json::deserializer(JSON));
+  DDenyUnknown? v = des::deserialize{DDenyUnknown}(&&json::tdeserializer(JSON));
   // DDenyUnknown has deny_unknown_fields so this MUST fault
   if (catch err = v) {
     assert(err == des::UNKNOWN_FIELD);
@@ -339,14 +339,14 @@ fn void test_des_extra_fields_ignored() @test {
 fn void test_des_extra_fields_ignored_without_deny() @test {
   // without deny_unknown_fields, extra keys are silently consumed
   const String JSON = `{"x": 1, "y": 2, "z": 999, "label": "extra"}`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 1);
   assert(p.y == 2);
 }
 
 fn void test_des_deny_unknown_fields() @test {
   const String JSON = `{"name": "bob", "value": 5, "nope": "bad"}`;
-  DDenyUnknown? v = des::deserialize{DDenyUnknown}(&&json::deserializer(JSON));
+  DDenyUnknown? v = des::deserialize{DDenyUnknown}(&&json::tdeserializer(JSON));
   if (catch err = v) {
     assert(err == des::UNKNOWN_FIELD);
   } else {
@@ -357,7 +357,7 @@ fn void test_des_deny_unknown_fields() @test {
 fn void test_des_deny_unknown_fields_passes_when_clean() @test {
   // all fields known → no fault
   const String JSON = `{"name": "bob", "value": 5}`;
-  DDenyUnknown v = des::deserialize{DDenyUnknown}(&&json::deserializer(JSON))!!;
+  DDenyUnknown v = des::deserialize{DDenyUnknown}(&&json::tdeserializer(JSON))!!;
   assert(v.name == "bob");
   assert(v.value == 5);
 }
@@ -365,7 +365,7 @@ fn void test_des_deny_unknown_fields_passes_when_clean() @test {
 fn void test_des_duplicate_key() @test {
   // same key appears twice → DUPLICATED_KEY
   const String JSON = `{"name": "first", "age": 1, "name": "second"}`;
-  DDupCheck? v = des::deserialize{DDupCheck}(&&json::deserializer(JSON));
+  DDupCheck? v = des::deserialize{DDupCheck}(&&json::tdeserializer(JSON));
   if (catch err = v) {
     assert(err == des::DUPLICATED_KEY);
   } else {
@@ -377,7 +377,7 @@ fn void test_des_duplicate_key() @test {
 
 fn void test_des_enum_name() @test {
   const String JSON = `{"label": "go", "dir": "EAST"}`;
-  DWithDirection v = des::deserialize{DWithDirection}(&&json::deserializer(JSON))!!;
+  DWithDirection v = des::deserialize{DWithDirection}(&&json::tdeserializer(JSON))!!;
   assert(v.dir == DDirection.EAST);
 }
 
@@ -390,7 +390,7 @@ fn void test_des_enum_name_all_variants() @test {
   };
   DDirection[4] expected = { DDirection.NORTH, DDirection.SOUTH, DDirection.EAST, DDirection.WEST };
   foreach (i, js : jsons) {
-    DWithDirection v = des::deserialize{DWithDirection}(&&json::deserializer(js))!!;
+    DWithDirection v = des::deserialize{DWithDirection}(&&json::tdeserializer(js))!!;
     assert(v.dir == expected[i]);
   }
 }
@@ -398,7 +398,7 @@ fn void test_des_enum_name_all_variants() @test {
 fn void test_des_enum_invalid_name() @test {
   // "NORTHEAST" is not a valid DDirection variant → INVALID_ENUM_VALUE
   const String JSON = `{"label": "bad", "dir": "NORTHEAST"}`;
-  DWithDirection? v = des::deserialize{DWithDirection}(&&json::deserializer(JSON));
+  DWithDirection? v = des::deserialize{DWithDirection}(&&json::tdeserializer(JSON));
   if (catch err = v) {
     assert(err == des::INVALID_ENUM_VALUE);
   } else {
@@ -411,9 +411,9 @@ fn void test_des_enum_ordinal() @test {
   const String JSON0 = `{"label": "a", "rank": 0}`;
   const String JSON1 = `{"label": "b", "rank": 1}`;
   const String JSON2 = `{"label": "c", "rank": 2}`;
-  DWithRank v0 = des::deserialize{DWithRank}(&&json::deserializer(JSON0))!!;
-  DWithRank v1 = des::deserialize{DWithRank}(&&json::deserializer(JSON1))!!;
-  DWithRank v2 = des::deserialize{DWithRank}(&&json::deserializer(JSON2))!!;
+  DWithRank v0 = des::deserialize{DWithRank}(&&json::tdeserializer(JSON0))!!;
+  DWithRank v1 = des::deserialize{DWithRank}(&&json::tdeserializer(JSON1))!!;
+  DWithRank v2 = des::deserialize{DWithRank}(&&json::tdeserializer(JSON2))!!;
   assert(v0.rank == DRank.BRONZE);
   assert(v1.rank == DRank.SILVER);
   assert(v2.rank == DRank.GOLD);
@@ -422,7 +422,7 @@ fn void test_des_enum_ordinal() @test {
 fn void test_des_enum_field() @test {
   // DColor uses the "hex" associated field for lookup
   const String JSON = `{"label": "paint", "color": "#00FF00"}`;
-  DWithColor v = des::deserialize{DWithColor}(&&json::deserializer(JSON))!!;
+  DWithColor v = des::deserialize{DWithColor}(&&json::tdeserializer(JSON))!!;
   assert(v.color == DColor.GREEN);
 }
 
@@ -434,7 +434,7 @@ fn void test_des_enum_field_all_variants() @test {
   };
   DColor[3] expected = { DColor.RED, DColor.GREEN, DColor.BLUE };
   foreach (i, js : jsons) {
-    DWithColor v = des::deserialize{DWithColor}(&&json::deserializer(js))!!;
+    DWithColor v = des::deserialize{DWithColor}(&&json::tdeserializer(js))!!;
     assert(v.color == expected[i]);
   }
 }
@@ -445,47 +445,47 @@ fn void test_des_enum_field_all_variants() @test {
 fn void test_des_enum_fallback_known_variant() @test {
   // Known variant still maps correctly
   const String JSON = `{"label": "a", "status": "ACTIVE"}`;
-  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::tdeserializer(JSON))!!;
   assert(v.status == DStatus.ACTIVE);
 }
 
 fn void test_des_enum_fallback_known_variant_inactive() @test {
   const String JSON = `{"label": "b", "status": "INACTIVE"}`;
-  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::tdeserializer(JSON))!!;
   assert(v.status == DStatus.INACTIVE);
 }
 
 fn void test_des_enum_fallback_unknown_uses_fallback() @test {
   // "DEPRECATED" is not a valid DStatus → fallback UNKNOWN used, no fault
   const String JSON = `{"label": "c", "status": "DEPRECATED"}`;
-  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::tdeserializer(JSON))!!;
   assert(v.status == DStatus.UNKNOWN);
 }
 
 fn void test_des_enum_fallback_empty_string_uses_fallback() @test {
   // Empty string doesn't match any variant → fallback
   const String JSON = `{"label": "d", "status": ""}`;
-  DWithStatus v = des::deserialize{DWithStatus}(&&json::deserializer(JSON))!!;
+  DWithStatus v = des::deserialize{DWithStatus}(&&json::tdeserializer(JSON))!!;
   assert(v.status == DStatus.UNKNOWN);
 }
 
 fn void test_des_enum_fallback_field_known() @test {
   // Known code value maps correctly
   const String JSON = `{"label": "e", "priority": "high"}`;
-  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::tdeserializer(JSON))!!;
   assert(v.priority == DPriority.HIGH);
 }
 
 fn void test_des_enum_fallback_field_known_medium() @test {
   const String JSON = `{"label": "f", "priority": "medium"}`;
-  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::tdeserializer(JSON))!!;
   assert(v.priority == DPriority.MEDIUM);
 }
 
 fn void test_des_enum_fallback_field_unknown_uses_fallback() @test {
   // "critical" is not a valid DPriority code → fallback NONE used, no fault
   const String JSON = `{"label": "g", "priority": "critical"}`;
-  DWithPriority v = des::deserialize{DWithPriority}(&&json::deserializer(JSON))!!;
+  DWithPriority v = des::deserialize{DWithPriority}(&&json::tdeserializer(JSON))!!;
   assert(v.priority == DPriority.NONE);
 }
 
@@ -493,7 +493,7 @@ fn void test_des_enum_fallback_field_unknown_uses_fallback() @test {
 
 fn void test_des_maybe_null() @test {
   const String JSON = `{"name": "empty", "opt": null}`;
-  DWithMaybe v = des::deserialize{DWithMaybe}(&&json::deserializer(JSON))!!;
+  DWithMaybe v = des::deserialize{DWithMaybe}(&&json::tdeserializer(JSON))!!;
   assert(v.name == "empty");
   // opt must be empty (get() must fault)
   if (catch v.opt.get()) { /* correct: empty Maybe */ } else { assert(false); }
@@ -501,7 +501,7 @@ fn void test_des_maybe_null() @test {
 
 fn void test_des_maybe_value() @test {
   const String JSON = `{"name": "full", "opt": 99}`;
-  DWithMaybe v = des::deserialize{DWithMaybe}(&&json::deserializer(JSON))!!;
+  DWithMaybe v = des::deserialize{DWithMaybe}(&&json::tdeserializer(JSON))!!;
   assert(v.name == "full");
   assert(v.opt.get()!! == 99);
 }
@@ -509,18 +509,18 @@ fn void test_des_maybe_value() @test {
 // ── Tests: JSON parse errors ──────────────────────────────────────────────────
 
 fn void test_des_invalid_object() @test {
-  DPoint? p = des::deserialize{DPoint}(&&json::deserializer("not-an-object"));
+  DPoint? p = des::deserialize{DPoint}(&&json::tdeserializer("not-an-object"));
   assert(@catch(p));
 }
 
 fn void test_des_invalid_bool() @test {
-  bool? b = des::deserialize{bool}(&&json::deserializer("maybe"));
+  bool? b = des::deserialize{bool}(&&json::tdeserializer("maybe"));
   assert(@catch(b));
 }
 
 fn void test_des_invalid_number() @test {
   // leading zero followed by digit is invalid JSON number
-  long? n = des::deserialize{long}(&&json::deserializer("01"));
+  long? n = des::deserialize{long}(&&json::tdeserializer("01"));
   assert(@catch(n));
 }
 
@@ -529,14 +529,14 @@ fn void test_des_invalid_number() @test {
 fn void test_des_large_int() @test {
   // INT_MAX / INT_MIN — representable exactly as f64 (2^31 < 2^53)
   const String JSON = `{"x": 2147483647, "y": -2000000000}`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 2147483647);
   assert(p.y == -2000000000);
 }
 
 fn void test_des_zero_values() @test {
   const String JSON = `{"x": 0, "y": 0}`;
-  DPoint p = des::deserialize{DPoint}(&&json::deserializer(JSON))!!;
+  DPoint p = des::deserialize{DPoint}(&&json::tdeserializer(JSON))!!;
   assert(p.x == 0);
   assert(p.y == 0);
 }
@@ -545,13 +545,13 @@ fn void test_des_zero_values() @test {
 
 fn void test_des_object_any_basic() @test {
   const String JSON = `{"count": 3, "ok": true, "msg": "hello", "empty": null}`;
-  Object* obj = des::deserialize{Object*}(&&json::debug_deserializer(JSON))!!;
+  Object* obj = des::deserialize{Object*}(&&json::tdebug_deserializer(JSON))!!;
   assert(obj != null);
 }
 
 fn void test_des_object_any_nested() @test {
   const String JSON = `{"outer": {"inner": 42}}`;
-  Object* obj = des::deserialize{Object*}(&&json::deserializer(JSON))!!;
+  Object* obj = des::deserialize{Object*}(&&json::tdeserializer(JSON))!!;
   assert(obj != null);
 }
 
@@ -563,7 +563,7 @@ fn void test_des_roundtrip_simple() @test {
   JsonValue j = ser::serialize(&s, original)!!;
   defer j.free();
 
-  DFull copy = des::deserialize{DFull}(&&json::deserializer(j.to_string()!!))!!;
+  DFull copy = des::deserialize{DFull}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.name   == "Alice");
   assert(copy.age    == 30);
   assert(copy.active == true);
@@ -586,7 +586,7 @@ fn void test_des_roundtrip_complex() @test {
   JsonValue j = ser::serialize(&s, original)!!;
   defer j.free();
 
-  DComplex copy = des::deserialize{DComplex}(&&json::deserializer(j.to_string()!!))!!;
+  DComplex copy = des::deserialize{DComplex}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.title        == "route");
   assert(copy.origin.x     == 0);
   assert(copy.origin.y     == 0);
@@ -612,7 +612,7 @@ fn void? DWithInlineSub.deserialize(&self, Deserializer deserializer) => des::im
 
 fn void test_des_inline_substruct() @test {
   const String JSON = `{"id": 5, "pos": {"x": 11, "y": -2}}`;
-  DWithInlineSub v = des::deserialize{DWithInlineSub}(&&json::deserializer(JSON))!!;
+  DWithInlineSub v = des::deserialize{DWithInlineSub}(&&json::tdeserializer(JSON))!!;
   assert(v.id == 5);
   assert(v.pos.x == 11);
   assert(v.pos.y == -2);
@@ -620,7 +620,7 @@ fn void test_des_inline_substruct() @test {
 
 fn void test_des_inline_substruct_missing_field() @test {
   const String JSON = `{"id": 3, "pos": {"x": 7}}`;
-  DWithInlineSub v = des::deserialize{DWithInlineSub}(&&json::deserializer(JSON))!!;
+  DWithInlineSub v = des::deserialize{DWithInlineSub}(&&json::tdeserializer(JSON))!!;
   assert(v.id == 3);
   assert(v.pos.x == 7);
   assert(v.pos.y == 0);
@@ -632,7 +632,7 @@ fn void test_des_inline_substruct_roundtrip() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DWithInlineSub copy = des::deserialize{DWithInlineSub}(&&json::deserializer(j.to_string()!!))!!;
+  DWithInlineSub copy = des::deserialize{DWithInlineSub}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.id == 99);
   assert(copy.pos.x == 7);
   assert(copy.pos.y == -3);
@@ -654,14 +654,14 @@ fn void? DTaggedUnion.deserialize(&self, Deserializer deserializer) => des::impl
 
 fn void test_des_union_field() @test {
   const String JSON = `{"tag": 0, "val": 999}`;
-  DTaggedUnion v = des::deserialize{DTaggedUnion}(&&json::deserializer(JSON))!!;
+  DTaggedUnion v = des::deserialize{DTaggedUnion}(&&json::tdeserializer(JSON))!!;
   assert(v.tag == 0);
   assert(v.val.i == 999);
 }
 
 fn void test_des_union_negative() @test {
   const String JSON = `{"tag": 0, "val": -12345}`;
-  DTaggedUnion v = des::deserialize{DTaggedUnion}(&&json::deserializer(JSON))!!;
+  DTaggedUnion v = des::deserialize{DTaggedUnion}(&&json::tdeserializer(JSON))!!;
   assert(v.val.i == -12345);
 }
 
@@ -671,7 +671,7 @@ fn void test_des_union_roundtrip() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DTaggedUnion copy = des::deserialize{DTaggedUnion}(&&json::deserializer(j.to_string()!!))!!;
+  DTaggedUnion copy = des::deserialize{DTaggedUnion}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.tag == 0);
   assert(copy.val.i == 42);
 }
@@ -691,14 +691,14 @@ fn void? DDUnionNamed.deserialize(&self, Deserializer deserializer) => des::impl
 
 fn void test_des_dunion_named_first() @test {
   const String JSON = `{"kind": 0, "p": {"first": 42}}`;
-  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::deserializer(JSON))!!;
+  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 0);
   assert(v.p.first == 42);
 }
 
 fn void test_des_dunion_named_second() @test {
   const String JSON = `{"kind": 1, "p": {"second": 3.14}}`;
-  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::deserializer(JSON))!!;
+  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 1);
   double diff = v.p.second - 3.14;
   if (diff < 0) diff = -diff;
@@ -707,7 +707,7 @@ fn void test_des_dunion_named_second() @test {
 
 fn void test_des_dunion_named_third() @test {
   const String JSON = `{"kind": 2, "p": {"third": "hello"}}`;
-  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::deserializer(JSON))!!;
+  DDUnionNamed v = des::deserialize{DDUnionNamed}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 2);
   assert(v.p.third == "hello");
 }
@@ -718,7 +718,7 @@ fn void test_des_dunion_named_roundtrip_first() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DDUnionNamed copy = des::deserialize{DDUnionNamed}(&&json::deserializer(j.to_string()!!))!!;
+  DDUnionNamed copy = des::deserialize{DDUnionNamed}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == 0);
   assert(copy.p.first == 99);
 }
@@ -729,7 +729,7 @@ fn void test_des_dunion_named_roundtrip_second() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DDUnionNamed copy = des::deserialize{DDUnionNamed}(&&json::deserializer(j.to_string()!!))!!;
+  DDUnionNamed copy = des::deserialize{DDUnionNamed}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == 1);
   double diff = copy.p.second - 1.5;
   if (diff < 0) diff = -diff;
@@ -751,14 +751,14 @@ fn void? DDUnionAnon.deserialize(&self, Deserializer deserializer) => des::impl_
 fn void test_des_dunion_anon_first() @test {
   // foo is a top-level key (union flattened into parent)
   const String JSON = `{"kind": 0, "foo": 77}`;
-  DDUnionAnon v = des::deserialize{DDUnionAnon}(&&json::deserializer(JSON))!!;
+  DDUnionAnon v = des::deserialize{DDUnionAnon}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 0);
   assert(v.foo == 77);
 }
 
 fn void test_des_dunion_anon_second() @test {
   const String JSON = `{"kind": 1, "bar": 9.9}`;
-  DDUnionAnon v = des::deserialize{DDUnionAnon}(&&json::deserializer(JSON))!!;
+  DDUnionAnon v = des::deserialize{DDUnionAnon}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 1);
   double diff = v.bar - 9.9;
   if (diff < 0) diff = -diff;
@@ -771,7 +771,7 @@ fn void test_des_dunion_anon_roundtrip_first() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DDUnionAnon copy = des::deserialize{DDUnionAnon}(&&json::deserializer(j.to_string()!!))!!;
+  DDUnionAnon copy = des::deserialize{DDUnionAnon}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == 0);
   assert(copy.foo == 55);
 }
@@ -782,7 +782,7 @@ fn void test_des_dunion_anon_roundtrip_second() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DDUnionAnon copy = des::deserialize{DDUnionAnon}(&&json::deserializer(j.to_string()!!))!!;
+  DDUnionAnon copy = des::deserialize{DDUnionAnon}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == 1);
   double diff = copy.bar - 7.25;
   if (diff < 0) diff = -diff;
@@ -810,14 +810,14 @@ fn void? DMatchByOrdinal.deserialize(&self, Deserializer deserializer) => des::i
 fn void test_des_match_by_ordinal_first() @test {
   // ORD_FIRST (ordinal 0) → member[0] = first; payload value read at "payload" key
   const String JSON = `{"kind": "ORD_FIRST", "payload": 10}`;
-  DMatchByOrdinal v = des::deserialize{DMatchByOrdinal}(&&json::deserializer(JSON))!!;
+  DMatchByOrdinal v = des::deserialize{DMatchByOrdinal}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBOrdinalTag.ORD_FIRST);
   assert(v.payload.first == 10);
 }
 
 fn void test_des_match_by_ordinal_second() @test {
   const String JSON = `{"kind": "ORD_SECOND", "payload": 2.5}`;
-  DMatchByOrdinal v = des::deserialize{DMatchByOrdinal}(&&json::deserializer(JSON))!!;
+  DMatchByOrdinal v = des::deserialize{DMatchByOrdinal}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBOrdinalTag.ORD_SECOND);
   double diff = v.payload.second - 2.5;
   if (diff < 0) diff = -diff;
@@ -830,7 +830,7 @@ fn void test_des_match_by_ordinal_roundtrip() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DMatchByOrdinal copy = des::deserialize{DMatchByOrdinal}(&&json::deserializer(j.to_string()!!))!!;
+  DMatchByOrdinal copy = des::deserialize{DMatchByOrdinal}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == DMBOrdinalTag.ORD_THIRD);
   assert(copy.payload.third == "roundtrip");
 }
@@ -855,14 +855,14 @@ fn void? DMatchByDesc.deserialize(&self, Deserializer deserializer) => des::impl
 
 fn void test_des_match_by_desc_first() @test {
   const String JSON = `{"kind": "DESC_A", "payload": 42}`;
-  DMatchByDesc v = des::deserialize{DMatchByDesc}(&&json::deserializer(JSON))!!;
+  DMatchByDesc v = des::deserialize{DMatchByDesc}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBDescTag.DESC_A);
   assert(v.payload.desc_a == 42);
 }
 
 fn void test_des_match_by_desc_second() @test {
   const String JSON = `{"kind": "DESC_B", "payload": 9.9}`;
-  DMatchByDesc v = des::deserialize{DMatchByDesc}(&&json::deserializer(JSON))!!;
+  DMatchByDesc v = des::deserialize{DMatchByDesc}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBDescTag.DESC_B);
   double diff = v.payload.desc_b - 9.9;
   if (diff < 0) diff = -diff;
@@ -875,7 +875,7 @@ fn void test_des_match_by_desc_roundtrip() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DMatchByDesc copy = des::deserialize{DMatchByDesc}(&&json::deserializer(j.to_string()!!))!!;
+  DMatchByDesc copy = des::deserialize{DMatchByDesc}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == DMBDescTag.DESC_C);
   assert(copy.payload.desc_c == "desc");
 }
@@ -904,14 +904,14 @@ fn void? DMatchByField.deserialize(&self, Deserializer deserializer) => des::imp
 
 fn void test_des_match_by_field_first() @test {
   const String JSON = `{"kind": "FLD_A", "payload": 7}`;
-  DMatchByField v = des::deserialize{DMatchByField}(&&json::deserializer(JSON))!!;
+  DMatchByField v = des::deserialize{DMatchByField}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBFieldTag.FLD_A);
   assert(v.payload.fld_a == 7);
 }
 
 fn void test_des_match_by_field_second() @test {
   const String JSON = `{"kind": "FLD_B", "payload": 3.14}`;
-  DMatchByField v = des::deserialize{DMatchByField}(&&json::deserializer(JSON))!!;
+  DMatchByField v = des::deserialize{DMatchByField}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == DMBFieldTag.FLD_B);
   double diff = v.payload.fld_b - 3.14;
   if (diff < 0) diff = -diff;
@@ -924,7 +924,7 @@ fn void test_des_match_by_field_roundtrip() @test {
   JsonValue j = ser::serialize(&s, orig)!!;
   defer j.free();
 
-  DMatchByField copy = des::deserialize{DMatchByField}(&&json::deserializer(j.to_string()!!))!!;
+  DMatchByField copy = des::deserialize{DMatchByField}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.kind == DMBFieldTag.FLD_C);
   assert(copy.payload.fld_c == "field");
 }
@@ -947,7 +947,7 @@ fn void? DUnmappedError.deserialize(&self, Deserializer deserializer) => des::im
 
 fn void test_des_unmapped_as_error() @test {
   const String JSON = `{"kind": 99, "payload": 0}`;  // ordinal 99 doesn't match member 0, 1, or 2
-  DUnmappedError? v = des::deserialize{DUnmappedError}(&&json::deserializer(JSON));
+  DUnmappedError? v = des::deserialize{DUnmappedError}(&&json::tdeserializer(JSON));
   if (catch err = v) {
     assert(err == des::UNMAPPED_UNION_VARIANT);
     return;
@@ -967,7 +967,7 @@ fn void? DUnmappedEmptyStruct.deserialize(&self, Deserializer deserializer) => d
 
 fn void test_des_unmapped_as_empty_struct() @test {
   const String JSON = `{"kind": 99, "payload": {}}`;
-  DUnmappedEmptyStruct v = des::deserialize{DUnmappedEmptyStruct}(&&json::deserializer(JSON))!!;
+  DUnmappedEmptyStruct v = des::deserialize{DUnmappedEmptyStruct}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 99);
 }
 
@@ -983,7 +983,7 @@ fn void? DUnmappedNull.deserialize(&self, Deserializer deserializer) => des::imp
 
 fn void test_des_unmapped_as_null() @test {
   const String JSON = `{"kind": 99, "payload": null}`;
-  DUnmappedNull v = des::deserialize{DUnmappedNull}(&&json::deserializer(JSON))!!;
+  DUnmappedNull v = des::deserialize{DUnmappedNull}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 99);
 }
 
@@ -999,7 +999,7 @@ fn void? DUnmappedZero.deserialize(&self, Deserializer deserializer) => des::imp
 
 fn void test_des_unmapped_as_zero() @test {
   const String JSON = `{"kind": 99, "payload": 0}`;
-  DUnmappedZero v = des::deserialize{DUnmappedZero}(&&json::deserializer(JSON))!!;
+  DUnmappedZero v = des::deserialize{DUnmappedZero}(&&json::tdeserializer(JSON))!!;
   assert(v.kind == 99);
 }
 
@@ -1015,7 +1015,7 @@ fn void test_des_roundtrip_null_pointer() @test {
   JsonValue j = ser::serialize(&s, original)!!;
   defer j.free();
 
-  DComplex copy = des::deserialize{DComplex}(&&json::deserializer(j.to_string()!!))!!;
+  DComplex copy = des::deserialize{DComplex}(&&json::tdeserializer(j.to_string()!!))!!;
   assert(copy.title    == "no-target");
   assert(copy.target   == null);
   assert(copy.path.len == 0);

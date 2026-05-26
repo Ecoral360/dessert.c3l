@@ -62,7 +62,7 @@ fn void t() @test {
 
   io::printn(json.to_pretty_string());
 
-  Person p = des::deserialize{Person}(&&json::deserializer(json.to_string()))!!;
+  Person p = des::deserialize{Person}(&&json::tdeserializer(json.to_string()))!!;
 
   io::printfn("%s\n%s", string::from_struct(mem, p), string::from_struct(mem, p.pets[0]));
 
@@ -109,7 +109,7 @@ fn void test_escape() @test {
   json.print()!!;
   io::printfn("\njson => %s", json.to_string()!!);
 
-  Function? f = des::deserialize{Function}(&&json::deserializer(TEST_DATA));
+  Function? f = des::deserialize{Function}(&&json::tdeserializer(TEST_DATA));
   if (catch err = f) {
     assert(err == des::UNKNOWN_FIELD);
   } else {
@@ -159,6 +159,6 @@ const String TEST_DATA_2 = `{
 }`;
 
 fn void test_escape2() @test {
-  Object* f = des::deserialize{Object*}(&&json::debug_deserializer(TEST_DATA_2))!!;
+  Object* f = des::deserialize{Object*}(&&json::tdebug_deserializer(TEST_DATA_2))!!;
   io::printfn("\nf => %s", string::from_struct(mem, f));
 }

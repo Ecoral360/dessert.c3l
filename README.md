@@ -47,10 +47,11 @@ The library is built around two core interfaces:
 
 The `dessert::json` module provides a complete JSON serializer and deserializer.
 
-- `json::serializer` to get a serializer that produces a JsonValue (with methods like `to_pretty_string()`).
+- `json::serializer` to get a serializer that produces a JsonValue (with methods like `to_pretty_string()`). Accepts an optional allocator: `json::serializer(allocator)` (defaults to `tmem`).
 - `json::string_serializer` to get a serializer that produces directly a json string.
 
-- `json::deserializer` to get a deserializer that takes a json string and produces your struct.
+- `json::tdeserializer` to get a deserializer that takes a json string and produces your struct (uses `tmem`).
+- `json::deserializer` to get a deserializer with a custom allocator: `json::deserializer(allocator, json_str)`.
 
 ### CSV
 
@@ -402,7 +403,7 @@ Output:
 
 ```c3
 String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
-Animal? animal = des::deserialize{Animal}(&&json::deserializer(json_str));
+Animal? animal = des::deserialize{Animal}(&&json::tdeserializer(json_str));
 ```
 
 ## Complete Example
@@ -437,7 +438,7 @@ fn int main(String[] args) {
   String json = ser::serialize(&&json::string_serializer(), connor)!!;
   io::printn(json);
 
-  Person? p = des::deserialize{Person}(&&json::deserializer(json));
+  Person? p = des::deserialize{Person}(&&json::tdeserializer(json));
   if (catch p) {
     io::printn("Error deserializing");
     return -1;

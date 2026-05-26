@@ -216,12 +216,13 @@ faultdef INVALID_JSON_TYPE;
 
 struct JsonSerializer (Serializer) {
   List{JsonValue} output;
+  Allocator allocator;
 }
 
-fn JsonSerializer serializer() {
+fn JsonSerializer serializer(Allocator allocator = tmem) {
   List{JsonValue} output;
-  output.init(tmem);
-  return { .output = output };
+  output.init(allocator);
+  return { .output = output, .allocator = allocator };
 }
 
 fn void? JsonSerializer.serialize_null(&self) @dynamic {
@@ -246,7 +247,7 @@ fn void? JsonSerializer.serialize_string(&self, String s) @dynamic {
 
 fn void? JsonSerializer.struct_start(&self, String name) @dynamic {
   OrderedMap{String, JsonValue} d;
-  d.init(tmem);
+  d.init(self.allocator);
   self.output.push({ .kind = JsonValueKind.DICT, .value = { .d = d } });
 }
 
@@ -255,7 +256,7 @@ fn void? JsonSerializer.struct_end(&self, String name) @dynamic {}
 fn void? JsonSerializer.serialize_slice_start(&self, long len) @dynamic {}
 fn void? JsonSerializer.serialize_slice_end(&self, long len) @dynamic {
   List{JsonValue} l;
-  l.init(tmem);
+  l.init(self.allocator);
   for (int i = 0; i < len; i++) {
     l.push_front(self.output.pop()!);
   }
@@ -361,6 +362,7 @@ faultdef
 struct JsonDeserializer(Deserializer) {
   // JsonValue input;
   StringIterator input;
+  Allocator allocator;
   int col;
   int line;
   bool is_debug;
@@ -387,13 +389,17 @@ fn void? JsonDeserializer.skip_whitespace(&self) {
   }
 }
 
-fn JsonDeserializer? deserializer(String input) {
-  return { .input = { .utf8 = input } };
+fn JsonDeserializer? deserializer(Allocator allocator, String input) {
+  return { .input = { .utf8 = input }, .allocator = allocator };
 }
 
-fn JsonDeserializer? debug_deserializer(String input) {
-  return { .input = { .utf8 = input }, .is_debug = true };
+fn JsonDeserializer? tdeserializer(String input) => deserializer(tmem, input);
+
+fn JsonDeserializer? debug_deserializer(Allocator allocator, String input) {
+  return { .input = { .utf8 = input }, .allocator = allocator, .is_debug = true };
 }
+
+fn JsonDeserializer? tdebug_deserializer(String input) => debug_deserializer(tmem, input);
 
 fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
   self.skip_whitespace()!;
@@ -460,7 +466,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   Char32 next = self.input.peek()!;
   switch {
     case next == '"':
-      return object::new_string(tmem, self.next_string())!;
+      return object::new_string(self.allocator, self.next_string())!;
 
     case next == 't':
     case next == 'f':
@@ -471,7 +477,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return object::new_null();
 
     case next == '{':
-      Object* o = object::new_obj(tmem);
+      Object* o = object::new_obj(self.allocator);
       self.struct_start("")!;
       while(self.has_next_field()!) {
         String next_key = self.next_field_name()!;
@@ -481,7 +487,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return o;
 
     case next == '[':
-      Object* o = object::new_obj(tmem);
+      Object* o = object::new_obj(self.allocator);
       self.slice_start()!;
       while(self.has_next_slice_item()!) {
         o.push(self.next_any())!;
@@ -492,9 +498,9 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
     case ascii::is_digit((char) next):
       double value = self.next_double()!;
       if ((double) math::round(value) == value) {
-        return object::new_int(tmem, (int128) value);
+        return object::new_int(self.allocator, (int128) value);
       }
-      return object::new_float(tmem, value);
+      return object::new_float(self.allocator, value);
   }
 
   return INVALID_OBJECT~;
@@ -510,7 +516,7 @@ fn String? JsonDeserializer.next_string(&self) @dynamic {
     return INVALID_STRING~;
   }
   DString val;
-  val.init(tmem);
+  val.init(self.allocator);
   while (Char32 c = self.next()!, c != '"') {
     if (c == '\\') {
       Char32 escape = self.next()!;

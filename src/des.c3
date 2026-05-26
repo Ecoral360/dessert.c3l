@@ -62,16 +62,25 @@ macro @is_deserializable($Output) {
      ($defined($value.get()!) ||| $defined($value == maybe::value{$Typeof($value.value)}($value.value))));
 }
 
-macro deserialize(Deserializer deserializer) <Output> {
+<*
+  @require($defined(Deserializer d = deserializer))
+*>
+macro deserialize(deserializer) <Output> {
   Output value;
   $switch:
     $case Output::kind == POINTER:
       if (deserializer.next_null()!) {
         return null;
       } else {
-        Output v = alloc::new(tmem, Output::inner);
-        *v = deserialize{Output::inner}(deserializer)!;
-        return v;
+        $if $defined(deserializer.allocator):
+          Output v = alloc::new(deserializer.allocator, Output::inner);
+          *v = deserialize{Output::inner}(deserializer)!;
+          return v;
+        $else
+          Output v = alloc::new(tmem, Output::inner);
+          *v = deserialize{Output::inner}(deserializer)!;
+          return v;
+        $endif
       }
 
     $case Output::kind == CONSTDEF:
@@ -97,7 +106,11 @@ macro deserialize(Deserializer deserializer) <Output> {
         elements.push(deserialize{Output::inner}(deserializer)!);
       }
       deserializer.slice_end()!;
-      return elements.to_array(tmem);
+      $if $defined(deserializer.allocator):
+        return elements.to_array(deserializer.allocator);
+      $else
+        return elements.to_array(tmem);
+      $endif
 
     $default:
       $error "The value cannot be deserialize: " +++ $Typeof(value)::name;
