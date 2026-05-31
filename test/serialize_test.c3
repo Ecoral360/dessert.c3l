@@ -966,3 +966,25 @@ fn void test_ser_csv_to_string_has_header() @test {
   if (catch out.index_of("sunny")) { assert(false); }
   if (catch out.index_of("Toulouse")) { assert(false); }
 }
+
+$expand(derive(FooWithHashMap::name, dessert::serialize));
+struct FooWithHashMap {
+  HashMap{String, int} found;
+  HashMap{String, SWeatherRow} cities @DField({ .flatten = true });
+  String bar;
+}
+
+// ── Test: HashMap ───────────────────────────────────────────────────────────────
+
+fn void test_foo_with_hashmap() @test {
+  FooWithHashMap f = { .bar = "hello" };
+  f.found.tinit();
+  f.found.set("bar", 1);
+  f.found.set("baz", -2);
+  f.found.set("baz", -2);
+  f.cities.set("toulouse", { .city = "Toulouse", .temp = 18.0, .sunny = false });
+
+  String output = ser::serialize(&&json::string_serializer(), f)!!;
+  assert(output == `{"found":{"baz":-2,"bar":1},"toulouse":{"city":"Toulouse","temp":18.000000,"sunny":false},"bar":"hello"}`);
+
+}
