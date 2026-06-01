@@ -363,6 +363,7 @@ struct JsonDeserializer(Deserializer) {
   // JsonValue input;
   StringIterator input;
   Allocator allocator;
+  Maybe{String} peeked_field;
   int col;
   int line;
   bool is_debug;
@@ -409,6 +410,8 @@ fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
 }
 
 fn bool? JsonDeserializer.has_next_field(&self) @dynamic {
+  if (self.peeked_field.has_value) return true;
+
   self.skip_whitespace()!;
   Char32 next = self.input.peek()!;
   if (next != '}') {
@@ -419,11 +422,27 @@ fn bool? JsonDeserializer.has_next_field(&self) @dynamic {
 }
 
 fn String? JsonDeserializer.next_field_name(&self) @dynamic {
+  if (try field_name = self.peeked_field.get()) {
+    self.peeked_field.reset();
+    return field_name;
+  }
+
   String field_name = self.next_string()!;
   self.skip_whitespace()!;
   if (self.next()! != ':') {
     return INVALID_FIELD~;
   }
+
+  return field_name;
+}
+
+fn String? JsonDeserializer.peek_field_name(&self) @dynamic {
+  if (try field_name = self.peeked_field.get()) {
+    return field_name;
+  }
+
+  String field_name = self.next_field_name()!;
+  self.peeked_field = maybe::value(field_name);
 
   return field_name;
 }

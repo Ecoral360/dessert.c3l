@@ -1020,3 +1020,27 @@ fn void test_des_roundtrip_null_pointer() @test {
   assert(copy.target   == null);
   assert(copy.path.len == 0);
 }
+
+$expand(derive(SWeatherRow::name, dessert::deserialize));
+struct SWeatherRow {
+  String city;
+  double temp;
+  bool   sunny;
+}
+$expand(derive(FooWithHashMap::name, dessert::deserialize));
+struct FooWithHashMap {
+  String bar;
+  HashMap{String, int} found;
+  HashMap{String, SWeatherRow} cities @DField({ .flatten = true });
+}
+
+// ── Test: HashMap ───────────────────────────────────────────────────────────────
+
+fn void test_des_foo_with_hashmap() @test {
+  String input = `{"found":{"baz":-2,"bar":1},"bar":"hello","toulouse":{"city":"Toulouse","temp":18.000000,"sunny":false}}`;
+
+  FooWithHashMap f = des::deserialize{FooWithHashMap}(&&json::tdeserializer(input))!!;
+
+  assert(f.cities["toulouse"].city!! == "Toulouse");
+  assert(f.found["baz"]!! == -2);
+}

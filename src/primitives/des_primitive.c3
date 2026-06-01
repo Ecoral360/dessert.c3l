@@ -1,5 +1,7 @@
 module dessert::des;
 import std::collections::object;
+import std::collections::map;
+import std::collections::list;
 
 faultdef UNSUPPORTED_DATA_TYPE, UNSUPPORTED_ANY;
 
@@ -113,4 +115,32 @@ fn void? Object.deserialize(&self, Deserializer des) @dynamic {
   } else {
     return UNSUPPORTED_ANY~;
   }
+}
+
+fn void? HashMap.deserialize(&self, Deserializer deserializer) {
+  $if @is_deserializable(Value):
+    while(deserializer.has_next_field()!) {
+      String? next_key = deserializer.next_field_name();
+      if (catch next_key) {
+        next_key!;
+        return;
+      }
+
+      self.set(next_key, deserialize{Value}(deserializer)!);
+    }
+  $else
+    abort(@sprintf("Value not deserializable '%s'", Value::name));
+  $endif
+}
+
+fn void? List.deserialize(&self, Deserializer deserializer) {
+  $if @is_deserializable(Type):
+      deserializer.slice_start()!;
+      while(deserializer.has_next_slice_item()!) {
+        self.push(deserialize{Type}(deserializer)!);
+      }
+      deserializer.slice_end()!;
+  $else
+    abort(@sprintf("Type not deserializable '%s'", Type));
+  $endif
 }
