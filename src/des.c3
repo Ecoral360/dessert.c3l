@@ -58,11 +58,11 @@ interface Deserializable {
   fn void? deserialize(Deserializer deserializer);
 }
 
-macro @is_deserializable($Output) {
+macro @is_deserializable($Output) @const {
   $Output $value;
   return $defined($value.deserialize) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
     ($defined($value.get) &&& $defined($value.get()) &&& 
-     ($defined($value.get()!) ||| $defined($value == maybe::value{$Typeof($value.value)}($value.value))));
+     ($defined($value.get()!) ||| $defined($value == maybe::value{$Typeof($value.get()!!)}($value.get()!!))));
 }
 
 <*

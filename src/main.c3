@@ -109,7 +109,27 @@ struct Output {
     String csv_fmt;   // matched when kind.mime == "csv_fmt"
   }
 }
+
+$expand(derive(SWeatherRow::name, dessert));
+struct SWeatherRow {
+  String city;
+  double temp;
+  bool   sunny;
+}
+$expand(derive(FooWithHashMap::name, dessert));
+struct FooWithHashMap {
+  String bar;
+  HashMap{String, int} found;
+  HashMap{String, SWeatherRow} cities @DField({ .flatten = true });
+}
+
 fn void main() {
+  String input = `{"found":{"baz":-2,"bar":1},"bar":"hello","toulouse":{"city":"Toulouse","temp":18.000000,"sunny":false}}`;
+
+  FooWithHashMap f = des::deserialize{FooWithHashMap}(&&json::tdeserializer(input))!!;
+
+  io::printn(ser::serialize(&&json::string_serializer(), f)!!);
+
   // Request req = { .kind = THIRD, .p = {.second = { .x = 2 }} };
   // String s = ser::serialize(&&json::string_serializer(), req)!!;
   // io::printn(s);
@@ -120,16 +140,16 @@ fn void main() {
   // io::printn(p.kind);
   // io::printn(p.p.first);
 
-  Output o = { .kind = JSON_FMT, .payload.json_fmt = 12, .x = &&22 };
-  String s = ser::serialize(&&json::string_serializer(), o)!!;
-  io::printn(s);
-
-  Output p;
-  @pool() {
-    p = des::deserialize{Output}(&&json::deserializer(mem, s))!!;
-  };
-
-  io::printfn("p.x=%d, o.x=%s", *p.x, *o.x);
+  // Output o = { .kind = JSON_FMT, .payload.json_fmt = 12, .x = &&22 };
+  // String s = ser::serialize(&&json::string_serializer(), o)!!;
+  // io::printn(s);
+  //
+  // Output p;
+  // @pool() {
+  //   p = des::deserialize{Output}(&&json::deserializer(mem, s))!!;
+  // };
+  //
+  // io::printfn("p.x=%d, o.x=%s", *p.x, *o.x);
 
   // io::printn(string::from_struct(tmem, p));
   // io::printn(p.payload.json_fmt);
