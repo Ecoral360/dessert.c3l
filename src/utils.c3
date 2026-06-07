@@ -1,5 +1,7 @@
 module dessert::utils;
 
+import std::collections::maybe;
+
 const char[256] TO_UPPER @private = { ['a'..'z'] = 'a' - 'A' };
 macro char @to_upper(char $c) => $c - TO_UPPER[$c];
 
@@ -12,20 +14,17 @@ macro String @str_to_upper(String $s) @const {
   return $final_s;
 }
 
-macro @is_maybe($value) {
-  return ($defined($value.get) &&& $defined($value.get()) &&& 
-          ($defined($value.get()!) ||| $defined($value == maybe::value{$typeof($value.value)}($value.value))));
+macro @is_maybe($value) @const {
+   return $defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value);
 }
 
 macro @is_maybe_expr(#value) {
-  return ($defined(#value.get) &&& $defined(#value.get()) &&& 
-          ($defined(#value.get()!) ||| $defined(#value == maybe::value{$typeof(#value.value)}(#value.value))));
+  return $defined(#value.get()) &&& $defined(#value.get()!) &&& $defined(Maybe{$Typeof(#value.get()!!)} v = #value);
 }
 
-macro @is_maybe_type($Type) {
+macro @is_maybe_type($Type) @const {
   $Type $value;
-  return ($defined($value.get) &&& $defined($value.get()) &&& 
-          ($defined($value.get()!) ||| $defined($value == maybe::value{$typeof($value.value)}($value.value))));
+  return @is_maybe($value);
 }
 
 macro @get_maybe_inner_type($Type) {
