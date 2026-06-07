@@ -61,8 +61,7 @@ interface Deserializable {
 macro @is_deserializable($Output) @const {
   $Output $value;
   return $defined($value.deserialize) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
-    ($defined($value.get) &&& $defined($value.get()) &&& 
-     ($defined($value.get()!) ||| $defined($value == maybe::value{$Typeof($value.get()!!)}($value.get()!!))));
+    ($defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value));
 }
 
 <*
@@ -338,8 +337,7 @@ macro deserialize_value(deserializer, DFieldConfig $config) <Output> {
       $endif
       return value;
 
-    $case ($defined(value.get) &&& $defined(value.get()) &&& 
-           ($defined(value.get()!) ||| $defined(value == maybe::value{$Typeof(value.value)}(value.value)))):
+    $case $defined(value.get()) &&& $defined(value.get()!) &&& $defined(Maybe{$Typeof(value.get()!!)} v = value):
       if (deserializer.next_null()!) {
         return (Maybe{$Typeof(value.value)}) {};
       } else {
