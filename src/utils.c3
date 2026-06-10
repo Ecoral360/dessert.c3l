@@ -5,15 +5,6 @@ import std::collections::maybe;
 const char[256] TO_UPPER @private = { ['a'..'z'] = 'a' - 'A' };
 macro char @to_upper(char $c) => $c - TO_UPPER[$c];
 
-macro String @str_to_upper(String $s) @const {
-  var $final_s = "";
-  $foreach $c : $s:
-    $final_s +++= @to_upper($c);
-  $endforeach
-
-  return $final_s;
-}
-
 macro @is_maybe($value) @const {
    return $defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value);
 }

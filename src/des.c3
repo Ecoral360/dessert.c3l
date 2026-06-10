@@ -227,7 +227,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
             $case $config.tagged.match.by == DESCRIPTION:
               $the_switch = "switch (tag_value) {";
               $foreach $i, $m : $UType::members:
-                $the_switch +++= @sprintf("case %s:\n", utils::@str_to_upper($m.name));
+                $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
                 $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {})!;\n", $i, $i);
               $endforeach
               $the_switch +++= @default_unmapped($config);

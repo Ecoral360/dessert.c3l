@@ -228,7 +228,7 @@ macro @impl_serialize_union($UType, s, Serializer serializer, $member, DFieldCon
       $the_switch = "switch (tag_value) {";
 
       $foreach $i, $m : $UType::members:
-        $the_switch +++= @sprintf("case %s:\n", utils::@str_to_upper($m.name));
+        $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
         $if $config.tagged.inlined:
           $the_switch +++= @sprintf("@impl_serialize_value($UType::members[%s].type, s.$member.$eval($UType::members[%s].name), serializer)!;\n", $i, $i);
         $else
