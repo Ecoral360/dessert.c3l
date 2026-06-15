@@ -1,6 +1,7 @@
 module dessert::des;
 import std::collections::list;
 import std::collections::maybe;
+import std::collections::map;
 import std::collections::object;
 import std::io;
 import dessert::utils;
@@ -58,9 +59,15 @@ interface Deserializable {
   fn void? deserialize(Deserializer deserializer);
 }
 
+macro bool @is_hashmap($Type) => $Type::qname.@starts_with("std::collections::map::HashMap");
+
+macro bool String.@starts_with($self, String $other) @const {
+  return $self.len >= $other.len &&& $self[:$other.len] == $other;
+}
+
 macro @is_deserializable($Output) @const {
   $Output $value;
-  return $defined($value.deserialize) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
+  return $defined($value.deserialize) ||| @is_hashmap($Output) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
     ($defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value));
 }
 
@@ -333,6 +340,25 @@ macro deserialize_value(deserializer, DFieldConfig $config) <Output> {
       $endif
       value.deserialize(deserializer)!;
       $if Output != Object &&& Output::kind == STRUCT &&& !$config.flatten:
+        deserializer.struct_end(Output::name)!;
+      $endif
+      return value;
+
+    $case @is_hashmap($Typeof(value)):
+      $if $Typeof(value.tkeys()[0]) != String:
+        $error "Only a hashmap with string key can be deserialized";
+      $endif
+
+      $if !$config.flatten:
+        deserializer.struct_start(Output::name)!;
+      $endif
+      while(deserializer.has_next_field()!) {
+        String next_key = deserializer.next_field_name()!;
+
+
+        value.set(next_key, deserialize{$Typeof(value.tvalues()[0])}(deserializer)!);
+      }
+      $if !$config.flatten:
         deserializer.struct_end(Output::name)!;
       $endif
       return value;
