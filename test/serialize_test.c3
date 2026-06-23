@@ -1,4 +1,4 @@
-module serialize_test;
+module serialize_test @test;
 import std;
 import dessert;
 import json;

@@ -1,4 +1,4 @@
-module deserialize_test;
+module deserialize_test @test;
 import std;
 import dessert;
 import json;
@@ -519,8 +519,8 @@ fn void test_des_invalid_bool() @test {
 }
 
 fn void test_des_invalid_number() @test {
-  // leading zero followed by digit is invalid JSON number
-  long? n = des::deserialize{long}(&&json::tdeserializer("01"));
+  // leading zero followed by digit is invalid JSON number (strict flavor)
+  long? n = des::deserialize{long}(&&json::tdeserializer("01", JSON));
   assert(@catch(n));
 }
 
@@ -1045,11 +1045,11 @@ fn void test_des_foo_with_hashmap() @test {
   assert(f.found["baz"]!! == -2);
 }
 
-// ── Tests: JSON5 deserializer ─────────────────────────────────────────────────
+// ── Tests: JSONC flavor (relaxed superset) ─────────────────────────────────────────────────
 
 // JSON5 is a superset of JSON: plain JSON must still parse.
-fn void test_json5_plain_json() @test {
-  DFull v = des::deserialize{DFull}(&&json5::tdeserializer(
+fn void test_jsonc_plain_json() @test {
+  DFull v = des::deserialize{DFull}(&&json::tdeserializer(
     `{"name":"ada","age":36,"active":true,"score":9.5}`))!!;
   assert(v.name == "ada");
   assert(v.age == 36);
@@ -1058,7 +1058,7 @@ fn void test_json5_plain_json() @test {
 }
 
 // Unquoted keys, single-quoted strings, line + block comments, trailing comma.
-fn void test_json5_relaxed_object() @test {
+fn void test_jsonc_relaxed_object() @test {
   String src = `{
     // a line comment
     name: 'grace', /* a block comment */
@@ -1066,88 +1066,125 @@ fn void test_json5_relaxed_object() @test {
     active: false,
     score: 1.0,
   }`;
-  DFull v = des::deserialize{DFull}(&&json5::tdeserializer(src))!!;
+  DFull v = des::deserialize{DFull}(&&json::tdeserializer(src))!!;
   assert(v.name == "grace");
   assert(v.age == 85);
   assert(v.active == false);
   assert(v.score == 1.0);
 }
 
-fn void test_json5_single_quoted_string() @test {
-  String v = des::deserialize{String}(&&json5::tdeserializer(`'hello'`))!!;
+fn void test_jsonc_single_quoted_string() @test {
+  String v = des::deserialize{String}(&&json::tdeserializer(`'hello'`))!!;
   assert(v == "hello");
 }
 
 // A double quote needs no escaping inside a single-quoted string.
-fn void test_json5_single_quoted_with_double() @test {
-  String v = des::deserialize{String}(&&json5::tdeserializer(`'say "hi"'`))!!;
+fn void test_jsonc_single_quoted_with_double() @test {
+  String v = des::deserialize{String}(&&json::tdeserializer(`'say "hi"'`))!!;
   assert(v == `say "hi"`);
 }
 
-fn void test_json5_hex_escape() @test {
-  String v = des::deserialize{String}(&&json5::tdeserializer(`"\x21\x21"`))!!;
+fn void test_jsonc_hex_escape() @test {
+  String v = des::deserialize{String}(&&json::tdeserializer(`"\x21\x21"`))!!;
   assert(v == "!!");
 }
 
-fn void test_json5_unicode_escape() @test {
-  String v = des::deserialize{String}(&&json5::tdeserializer(`"AB"`))!!;
+fn void test_jsonc_unicode_escape() @test {
+  String v = des::deserialize{String}(&&json::tdeserializer(`"AB"`))!!;
   assert(v == "AB");
 }
 
-fn void test_json5_string_line_continuation() @test {
-  String v = des::deserialize{String}(&&json5::tdeserializer("\"line1\\\nline2\""))!!;
+fn void test_jsonc_string_line_continuation() @test {
+  String v = des::deserialize{String}(&&json::tdeserializer("\"line1\\\nline2\""))!!;
   assert(v == "line1line2");
 }
 
-fn void test_json5_hex_number() @test {
-  long v = des::deserialize{long}(&&json5::tdeserializer("0xFF"))!!;
+fn void test_jsonc_hex_number() @test {
+  long v = des::deserialize{long}(&&json::tdeserializer("0xFF"))!!;
   assert(v == 255);
 }
 
-fn void test_json5_leading_plus() @test {
-  long v = des::deserialize{long}(&&json5::tdeserializer("+42"))!!;
+fn void test_jsonc_leading_plus() @test {
+  long v = des::deserialize{long}(&&json::tdeserializer("+42"))!!;
   assert(v == 42);
 }
 
-fn void test_json5_leading_decimal_point() @test {
-  double v = des::deserialize{double}(&&json5::tdeserializer(".5"))!!;
-  assert(v == 0.5);
-}
-
-fn void test_json5_trailing_decimal_point() @test {
-  double v = des::deserialize{double}(&&json5::tdeserializer("5."))!!;
-  assert(v == 5.0);
-}
-
-fn void test_json5_infinity() @test {
-  double v = des::deserialize{double}(&&json5::tdeserializer("Infinity"))!!;
+fn void test_jsonc_infinity() @test {
+  double v = des::deserialize{double}(&&json::tdeserializer("Infinity"))!!;
   assert(math::is_inf(v) && v > 0);
 }
 
-fn void test_json5_negative_infinity() @test {
-  double v = des::deserialize{double}(&&json5::tdeserializer("-Infinity"))!!;
+fn void test_jsonc_negative_infinity() @test {
+  double v = des::deserialize{double}(&&json::tdeserializer("-Infinity"))!!;
   assert(math::is_inf(v) && v < 0);
 }
 
-fn void test_json5_nan() @test {
-  double v = des::deserialize{double}(&&json5::tdeserializer("NaN"))!!;
+fn void test_jsonc_nan() @test {
+  double v = des::deserialize{double}(&&json::tdeserializer("NaN"))!!;
   assert(math::is_nan(v));
 }
 
-fn void test_json5_array_trailing_comma() @test {
-  long[] v = des::deserialize{long[]}(&&json5::tdeserializer("[1, 2, 3,]"))!!;
+fn void test_jsonc_array_trailing_comma() @test {
+  long[] v = des::deserialize{long[]}(&&json::tdeserializer("[1, 2, 3,]"))!!;
   assert(v.len == 3);
   assert(v[0] == 1 && v[2] == 3);
 }
 
-fn void test_json5_nested_with_comments() @test {
+fn void test_jsonc_nested_with_comments() @test {
   String src = `{
     name: "outer",
     age: 1,
     active: true,
     score: 2.5, // trailing line comment
   }`;
-  DFull v = des::deserialize{DFull}(&&json5::tdeserializer(src))!!;
+  DFull v = des::deserialize{DFull}(&&json::tdeserializer(src))!!;
   assert(v.name == "outer");
   assert(v.score == 2.5);
+}
+
+// ── Tests: strict JSON flavor rejects JSONC extensions ────────────────────────
+
+fn void test_json_strict_rejects_comment() @test {
+  DFull? v = des::deserialize{DFull}(&&json::tdeserializer(
+    `{ // comment
+      "name":"x","age":1,"active":true,"score":0.0 }`, JSON));
+  assert(@catch(v));
+}
+
+fn void test_json_strict_rejects_unquoted_key() @test {
+  DFull? v = des::deserialize{DFull}(&&json::tdeserializer(
+    `{name:"x","age":1,"active":true,"score":0.0}`, JSON));
+  assert(@catch(v));
+}
+
+fn void test_json_strict_rejects_single_quote() @test {
+  String? v = des::deserialize{String}(&&json::tdeserializer(`'x'`, JSON));
+  assert(@catch(v));
+}
+
+fn void test_json_strict_rejects_trailing_comma() @test {
+  long[]? v = des::deserialize{long[]}(&&json::tdeserializer("[1, 2,]", JSON));
+  assert(@catch(v));
+}
+
+fn void test_json_strict_hex_not_parsed() @test {
+  // strict JSON does not understand hex: it reads the leading 0 and stops.
+  long strict = des::deserialize{long}(&&json::tdeserializer("0xFF", JSON))!!;
+  assert(strict == 0);
+  // JSONC reads the whole hex literal.
+  long jsonc = des::deserialize{long}(&&json::tdeserializer("0xFF"))!!;
+  assert(jsonc == 255);
+}
+
+fn void test_json_strict_rejects_infinity() @test {
+  double? v = des::deserialize{double}(&&json::tdeserializer("Infinity", JSON));
+  assert(@catch(v));
+}
+
+fn void test_json_strict_plain_json_ok() @test {
+  // strict flavor still accepts valid JSON
+  DFull v = des::deserialize{DFull}(&&json::tdeserializer(
+    `{"name":"ok","age":3,"active":false,"score":1.5}`, JSON))!!;
+  assert(v.name == "ok");
+  assert(v.score == 1.5);
 }

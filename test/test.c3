@@ -1,4 +1,4 @@
-module test;
+module test @test;
 import std;
 import dessert;
 import json;

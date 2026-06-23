@@ -349,15 +349,34 @@ fn void? JsonStringSerializer.serialize_field_end(&self, String name, FieldAttrs
 fn String JsonStringSerializer.result(&self) => self.output.str_view();
 
 
-faultdef 
-  INVALID_OBJECT, 
-  INVALID_FIELD, 
-  INVALID_ARRAY, 
+faultdef
+  UNEXPECTED_CHARACTER,
+  INVALID_OBJECT,
+  INVALID_FIELD,
+  INVALID_ARRAY,
   INVALID_STRING,
   INVALID_ESCAPE,
   INVALID_NUMBER,
   INVALID_BOOLEAN,
-  INVALID_NULL;
+  INVALID_NULL,
+  INVALID_COMMENT;
+
+<*
+  Selects how lenient the deserializer is.
+
+  - `JSON`  : strict RFC 8259 JSON.
+  - `JSONC` : a relaxed superset (JSON5-style). On top of plain JSON it accepts
+    single (`//`) and multi (`/* */`) line comments, unquoted and single-quoted
+    object keys, single-quoted strings with extra escapes (`\x`, `\u`, `\b`,
+    `\f`, `\v`, `\0`, line continuations and "escape any other char as itself"),
+    trailing commas in objects and arrays, hexadecimal numbers,
+    leading/trailing decimal points, a leading `+`, `Infinity`, `-Infinity`
+    and `NaN`.
+*>
+enum JsonFlavor {
+  JSON,
+  JSONC,
+}
 
 struct JsonDeserializer(Deserializer) {
   // JsonValue input;
@@ -367,6 +386,7 @@ struct JsonDeserializer(Deserializer) {
   int col;
   int line;
   bool is_debug;
+  JsonFlavor flavor;
 }
 
 fn Char32? JsonDeserializer.next(&self) @inline {
@@ -382,43 +402,131 @@ fn Char32? JsonDeserializer.next(&self) @inline {
   return c;
 }
 
-fn void? JsonDeserializer.skip_whitespace(&self) {
-  while (self.input.has_next() && 
-         (ascii::is_blank((char) self.input.peek()!) || '\n' == self.input.peek()!)) 
-  {
-    (void)self.next()!;
+<*
+  JSON5/JSONC whitespace: the JSON whitespace plus the rest of the ECMAScript
+  whitespace set we can cheaply recognize.
+*>
+macro bool is_json5_space(Char32 c) @local {
+  switch (c) {
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\r':
+    case '\v':
+    case '\f':
+    case 0xA0:   // no-break space
+    case 0xFEFF: // BOM / zero width no-break space
+    case 0x2028: // line separator
+    case 0x2029: // paragraph separator
+      return true;
+    default:
+      return false;
   }
 }
 
-fn JsonDeserializer? deserializer(Allocator allocator, String input) {
-  return { .input = { .utf8 = input }, .allocator = allocator };
+macro bool is_ident_start(Char32 c) @local {
+  return c == '_' || c == '$' || ascii::is_alpha((char) c) || c > 127;
 }
 
-fn JsonDeserializer? tdeserializer(String input) => deserializer(tmem, input);
-
-fn JsonDeserializer? debug_deserializer(Allocator allocator, String input) {
-  return { .input = { .utf8 = input }, .allocator = allocator, .is_debug = true };
+macro bool is_ident_part(Char32 c) @local {
+  return c == '_' || c == '$' || ascii::is_alpha((char) c) || ascii::is_digit((char) c) || c > 127;
 }
 
-fn JsonDeserializer? tdebug_deserializer(String input) => debug_deserializer(tmem, input);
+<*
+  Skips whitespace. In `JSONC` mode it also skips `//` and `/* */` comments and
+  recognizes the extended whitespace set.
+*>
+fn void? JsonDeserializer.skip_whitespace(&self) {
+  while (self.input.has_next()) {
+    Char32 c = self.input.peek()!;
+
+    bool is_space = self.flavor == JSONC
+      ? is_json5_space(c)
+      : (ascii::is_blank((char) c) || c == '\n');
+    if (is_space) {
+      (void) self.next()!;
+      continue;
+    }
+
+    if (self.flavor == JSONC && c == '/') {
+      (void) self.next()!;
+      Char32 kind = self.next()!;
+      switch (kind) {
+        case '/':
+          // line comment: consume until newline (or end of input)
+          while (self.input.has_next()) {
+            Char32 cc = self.input.peek()!;
+            if (cc == '\n' || cc == 0x2028 || cc == 0x2029) break;
+            (void) self.next()!;
+          }
+        case '*':
+          // block comment: consume until "*/"
+          bool closed = false;
+          while (self.input.has_next()) {
+            Char32 cc = self.next()!;
+            if (cc == '*' && self.input.has_next() && self.input.peek()! == '/') {
+              (void) self.next()!;
+              closed = true;
+              break;
+            }
+          }
+          if (!closed) return INVALID_COMMENT~;
+        default:
+          return INVALID_COMMENT~;
+      }
+      continue;
+    }
+
+    break;
+  }
+}
+
+macro Type? deserialize(Allocator allocator, String input, JsonFlavor flavor = JSONC) <Type> {
+  return des::deserialize{Type}(&&json::deserializer(allocator, input, flavor));
+}
+
+macro Type? tdeserialize(String input, JsonFlavor flavor = JSONC) <Type> {
+  return des::deserialize{Type}(&&json::tdeserializer(input, flavor));
+}
+
+fn JsonDeserializer deserializer(Allocator allocator, String input, JsonFlavor flavor = JSONC) {
+  return { .input = { .utf8 = input }, .allocator = allocator, .flavor = flavor };
+}
+
+fn JsonDeserializer tdeserializer(String input, JsonFlavor flavor = JSONC) => deserializer(tmem, input, flavor);
+
+fn JsonDeserializer? debug_deserializer(Allocator allocator, String input, JsonFlavor flavor = JSONC) {
+  return { .input = { .utf8 = input }, .allocator = allocator, .is_debug = true, .flavor = flavor };
+}
+
+fn JsonDeserializer? tdebug_deserializer(String input, JsonFlavor flavor = JSONC) => debug_deserializer(tmem, input, flavor);
 
 fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != '{') {
-    return INVALID_OBJECT~;
+    return UNEXPECTED_CHARACTER~;
   }
 }
 
+<*
+  In `JSONC` mode a comma right before the closing `}` (trailing comma) ends the
+  object instead of being an error.
+*>
 fn bool? JsonDeserializer.has_next_field(&self) @dynamic {
   if (self.peeked_field.has_value) return true;
 
   self.skip_whitespace()!;
   Char32 next = self.input.peek()!;
-  if (next != '}') {
-    if (next == ',') self.next()!;
-    return true;
+  if (next == ',') {
+    (void) self.next()!;
+    if (self.flavor == JSONC) {
+      self.skip_whitespace()!;
+      next = self.input.peek()!;
+    } else {
+      return true;
+    }
   }
-  return false;
+  return next != '}';
 }
 
 fn String? JsonDeserializer.next_field_name(&self) @dynamic {
@@ -427,13 +535,50 @@ fn String? JsonDeserializer.next_field_name(&self) @dynamic {
     return field_name;
   }
 
-  String field_name = self.next_string()!;
+  String field_name;
+  if (self.flavor == JSONC) {
+    self.skip_whitespace()!;
+    Char32 next = self.input.peek()!;
+    // JSONC keys may be quoted (single or double) or bare identifiers.
+    field_name = (next == '"' || next == '\'')
+      ? self.next_string()!
+      : self.next_identifier()!;
+  } else {
+    field_name = self.next_string()!;
+  }
+
   self.skip_whitespace()!;
   if (self.next()! != ':') {
     return INVALID_FIELD~;
   }
 
   return field_name;
+}
+
+<*
+  Reads an unquoted (ECMAScript identifier) object key. JSONC only.
+*>
+fn String? JsonDeserializer.next_identifier(&self) {
+  self.skip_whitespace()!;
+  Char32 first = self.input.peek()!;
+  if (!is_ident_start(first)) {
+    if (self.is_debug) {
+      self.print_error(string::tformat("Expected an identifier, found %c", first));
+    }
+    return INVALID_FIELD~;
+  }
+
+  DString val;
+  val.init(self.allocator);
+  while (self.input.has_next()) {
+    Char32 c = self.input.peek()!;
+    if (!is_ident_part(c)) break;
+    val.append(c);
+    (void) self.next()!;
+  }
+
+  if (val.len() == 0) return INVALID_FIELD~;
+  return val.str_view();
 }
 
 fn String? JsonDeserializer.peek_field_name(&self) @dynamic {
@@ -450,7 +595,7 @@ fn String? JsonDeserializer.peek_field_name(&self) @dynamic {
 fn void? JsonDeserializer.struct_end(&self, String name) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != '}') {
-    return INVALID_OBJECT~;
+    return UNEXPECTED_CHARACTER~;
   }
 }
 
@@ -460,14 +605,23 @@ fn void? JsonDeserializer.slice_start(&self) @dynamic {
     return INVALID_ARRAY~;
   }
 }
+<*
+  In `JSONC` mode a comma right before the closing `]` (trailing comma) ends the
+  array instead of being an error.
+*>
 fn bool? JsonDeserializer.has_next_slice_item(&self) @dynamic {
   self.skip_whitespace()!;
   Char32 next = self.input.peek()!;
-  if (next != ']') {
-    if (next == ',') self.next()!;
-    return true;
+  if (next == ',') {
+    (void) self.next()!;
+    if (self.flavor == JSONC) {
+      self.skip_whitespace()!;
+      next = self.input.peek()!;
+    } else {
+      return true;
+    }
   }
-  return false;
+  return next != ']';
 }
 fn void? JsonDeserializer.slice_end(&self) @dynamic {
   self.skip_whitespace()!;
@@ -483,8 +637,13 @@ fn void JsonDeserializer.print_error(&self, String message) {
 fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   self.skip_whitespace()!;
   Char32 next = self.input.peek()!;
+  bool jsonc = self.flavor == JSONC;
   switch {
     case next == '"':
+      return object::new_string(self.allocator, self.next_string())!;
+
+    case next == '\'':
+      if (!jsonc) return UNEXPECTED_CHARACTER~;
       return object::new_string(self.allocator, self.next_string())!;
 
     case next == 't':
@@ -515,28 +674,43 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return o;
 
     case ascii::is_digit((char) next):
+    case next == '-':
+    case next == '+':
+    case next == '.':
+    case next == 'I':
+    case next == 'N':
+      // '+', '.', 'I' (Infinity) and 'N' (NaN) only start a number in JSONC.
+      if (!jsonc && (next == '+' || next == '.' || next == 'I' || next == 'N')) {
+        return UNEXPECTED_CHARACTER~;
+      }
       double value = self.next_double()!;
-      if ((double) math::round(value) == value) {
+      if (!math::is_nan(value) && !math::is_inf(value) && (double) math::round(value) == value) {
         return object::new_int(self.allocator, (int128) value);
       }
       return object::new_float(self.allocator, value);
   }
 
-  return INVALID_OBJECT~;
+  return UNEXPECTED_CHARACTER~;
 }
 
 fn String? JsonDeserializer.next_string(&self) @dynamic {
   self.skip_whitespace()!;
-  Char32 next = self.next()!;
-  if (next != '"') {
+  bool jsonc = self.flavor == JSONC;
+  Char32 quote = self.next()!;
+  // JSONC also allows single-quoted strings.
+  bool ok_quote = quote == '"' || (jsonc && quote == '\'');
+  if (!ok_quote) {
     if (self.is_debug) {
-      self.print_error(string::tformat("Expected \", found %c", next));
+      self.print_error(string::tformat("Expected \", found %c", quote));
     }
     return INVALID_STRING~;
   }
   DString val;
   val.init(self.allocator);
-  while (Char32 c = self.next()!, c != '"') {
+  while (true) {
+    Char32 c = self.next()!;
+    if (c == quote) break;
+
     if (c == '\\') {
       Char32 escape = self.next()!;
       switch (escape) {
@@ -553,17 +727,79 @@ fn String? JsonDeserializer.next_string(&self) @dynamic {
         case '\\':
           val.append('\\');
         default:
-          return INVALID_ESCAPE~;
+          if (!jsonc) return INVALID_ESCAPE~;
+          // JSONC-only escapes.
+          switch (escape) {
+            case 'b':
+              val.append('\b');
+            case 'f':
+              val.append('\f');
+            case 'v':
+              val.append('\v');
+            case '0':
+              val.append('\0');
+            case '/':
+              val.append('/');
+            case 'x':
+              val.append(self.read_hex(2)!);
+            case 'u':
+              uint num = self.read_hex(4)!;
+              switch
+              {
+                case num >= 0xDC00 && num <= 0xDFFF:
+                  // Lone surrogate
+                  return INVALID_ESCAPE~;
+                case num >= 0xD800 && num <= 0xDBFF:
+                  // High surrogate read, now look for low surrogate
+                  if (self.next()! != '\\') return INVALID_ESCAPE~;
+                  if (self.next()! != 'u') return INVALID_ESCAPE~;
+                  uint low = self.read_hex(4)!;
+                  if (low < 0xDC00 || low > 0xDFFF) return INVALID_ESCAPE~;
+                  num = 0x10000u + (num - 0xD800u) << 10u + (low - 0xDC00u);
+              }
+              val.append_char32(num);
+            case '\n':
+            case 0x2028:
+            case 0x2029:
+              // line continuation: drop the newline
+              break;
+            case '\r':
+              // line continuation, consume an optional trailing \n
+              if (self.input.has_next() && self.input.peek()! == '\n') (void) self.next()!;
+            default:
+              return INVALID_ESCAPE~;
+              // val.append(escape);
+          }
       }
     } else {
       val.append(c);
     }
   }
 
-  // io::printfn("%c", self.input.peek()!);
-  // io::printfn("%s", val);
-
   return val.str_view();
+}
+
+<*
+  Reads `count` hexadecimal digits and returns the resulting code point. JSONC.
+*>
+fn uint? JsonDeserializer.read_hex(&self, int count) {
+  uint result;
+  for (int i = 0; i < count; i++) {
+    char c = (char) self.next()!;
+    if (!((char) c).is_xdigit()) return INVALID_ESCAPE~;
+    result = result << 4u + (c > '9' ? (c | 32u) - 'a' + 10u : c - '0');
+  }
+  return result;
+}
+
+<*
+  Parses the accumulated number text, applying the sign. Centralizes the
+  "invalid number" error so the various early-exit paths share it.
+*>
+fn double? parse_double(String s, bool negate) @local {
+  double? value = s.to_double();
+  if (catch value) return INVALID_NUMBER~;
+  return negate ? -value : value;
 }
 
 <* 
@@ -572,75 +808,130 @@ fn String? JsonDeserializer.next_string(&self) @dynamic {
 fn double? JsonDeserializer.next_double(&self) @dynamic {
   self.skip_whitespace()!;
   Char32 c = self.input.peek()!;
+  bool jsonc = self.flavor == JSONC;
+
   @stack_mem(256; Allocator mem) {
     DString t = dstring::new_with_capacity(mem, 32);
-    bool negate = c == '-';
-    if (negate) {
+
+    // Sign: a leading '+' is only valid in JSONC.
+    bool negate = false;
+    if (c == '-' || c == '+') {
+      if (c == '+' && !jsonc) return INVALID_NUMBER~;
+      negate = c == '-';
       self.next()!;
-      t.append(c);
       c = self.input.peek()!;
     }
+
+    // Infinity / NaN (JSONC only).
+    if (jsonc) {
+      if (c == 'I') {
+        foreach (ch : "Infinity") if (self.next()! != ch) return INVALID_NUMBER~;
+        double zero = 0.0;
+        return negate ? -1.0 / zero : 1.0 / zero;
+      }
+      if (c == 'N') {
+        foreach (ch : "NaN") if (self.next()! != ch) return INVALID_NUMBER~;
+        double zero = 0.0;
+        return zero / zero;
+      }
+    }
+
+    // Hexadecimal (JSONC only): a '0' followed by 'x'/'X'.
     bool leading_zero = c == '0';
+    if (jsonc && c == '0') {
+      t.append(c);
+      self.next()!;
+      Char32? after = self.input.peek();
+      if (catch after) return parse_double(t.str_view(), negate);
+      if (after == 'x' || after == 'X') {
+        self.next()!;
+        uint128 hex = 0;
+        bool has_digit = false;
+        while (self.input.has_next()) {
+          Char32 h = self.input.peek()!;
+          uint digit;
+          if (h >= '0' && h <= '9') {
+            digit = (uint) (h - '0');
+          } else if (h >= 'a' && h <= 'f') {
+            digit = (uint) (h - 'a' + 10);
+          } else if (h >= 'A' && h <= 'F') {
+            digit = (uint) (h - 'A' + 10);
+          } else {
+            break;
+          }
+          hex = hex * 16 + digit;
+          has_digit = true;
+          self.next()!;
+        }
+        if (!has_digit) return INVALID_NUMBER~;
+        double result = (double) hex;
+        return negate ? -result : result;
+      }
+      c = after;
+      leading_zero = false; // the '0' has already been consumed
+    }
+
+    // Integer part.
     while (ascii::is_digit((char) c)) {
       self.next()!;
       t.append(c);
       Char32? next = self.input.peek();
-      if (catch next) {
-        return t.str_view().to_double() ?? INVALID_NUMBER~;
-      }
+      if (catch next) return parse_double(t.str_view(), negate);
       c = next;
-      if (leading_zero) {
+      // Strict JSON forbids leading zeros (e.g. "01"); JSONC is lenient.
+      if (!jsonc && leading_zero) {
         if (ascii::is_digit((char) c)) return INVALID_NUMBER~;
         leading_zero = false;
       }
     }
+
+    // Fraction (a leading or trailing decimal point is not accepted).
     if (c == '.') {
       self.next()!;
       t.append(c);
       Char32? next = self.input.peek();
-      if (catch next) {
-        return t.str_view().to_double() ?? INVALID_NUMBER~;
-      }
+      if (catch next) return INVALID_NUMBER~;
       c = next;
       while (ascii::is_digit((char) c)) {
         self.next()!;
         t.append(c);
         Char32? next2 = self.input.peek();
-        if (catch next2) {
-          return t.str_view().to_double() ?? INVALID_NUMBER~;
-        }
+        if (catch next2) return parse_double(t.str_view(), negate);
         c = next2;
       }
+      if (t[^1] == '.') return INVALID_NUMBER~;
     }
+
+    // Exponent.
     if ((c | 32) == 'e') {
       self.next()!;
       t.append(c);
-      c = self.next()!;
-      switch (c) {
-        case '-':
-        case '+':
-          self.next()!;
-          t.append(c);
-          c = self.input.peek()!;
+      Char32? after = self.input.peek();
+      if (catch after) return INVALID_NUMBER~;
+      c = after;
+      if (c == '-' || c == '+') {
+        self.next()!;
+        t.append(c);
+        Char32? sexp = self.input.peek();
+        if (catch sexp) return INVALID_NUMBER~;
+        c = sexp;
       }
       if (!ascii::is_digit((char) c)) return INVALID_NUMBER~;
       while (ascii::is_digit((char) c)) {
-      self.next()!;
+        self.next()!;
         t.append(c);
         Char32? next = self.input.peek();
-        if (catch next) {
-          return t.str_view().to_double() ?? INVALID_NUMBER~;
-        }
+        if (catch next) return parse_double(t.str_view(), negate);
         c = next;
       }
     }
-    double? d = t.str_view().to_double() ?? INVALID_NUMBER~;
-    return d;
+
+    return parse_double(t.str_view(), negate);
   };
 }
 
 fn char? JsonDeserializer.next_char(&self) @dynamic {
-  return (char) self.next_char()!;
+  return (char) self.next_double()!;
 }
 
 fn long? JsonDeserializer.next_long(&self) @dynamic {
