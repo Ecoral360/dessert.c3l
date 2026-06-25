@@ -109,14 +109,6 @@ fn void? double.deserialize(&self, Deserializer des) @dynamic {
   *self = des.next_double()!;
 }
 
-fn void? Object.deserialize(&self, Deserializer des) @dynamic {
-  if (&des.next_any) {
-    *self = *des.next_any()!;
-  } else {
-    return UNSUPPORTED_ANY~;
-  }
-}
-
 // fn void? List.deserialize(&self, Deserializer deserializer) {
 //   $if @is_deserializable(Type):
 //       deserializer.slice_start()!;

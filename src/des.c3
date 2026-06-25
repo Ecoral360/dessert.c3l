@@ -319,14 +319,22 @@ macro deserialize_value(deserializer, DFieldConfig $config) <Output> {
       if (deserializer.next_null()!) {
         return null;
       } else {
-        $if $defined(deserializer.allocator):
-          Output v = alloc::new(deserializer.allocator, Output::inner);
-          *v = deserialize_value{Output::inner}(deserializer, $config)!;
-          return v;
+        $if Output == Object*:
+          $if $defined(deserializer.next_any()):
+            return deserializer.next_any()!;
+          $else
+            return UNSUPPORTED_ANY~;
+          $endif
         $else
-          Output v = alloc::new(tmem, Output::inner);
-          *v = deserialize_value{Output::inner}(deserializer, $config)!;
-          return v;
+          $if $defined(deserializer.allocator):
+            Output v = alloc::new(deserializer.allocator, Output::inner);
+            *v = deserialize_value{Output::inner}(deserializer, $config)!;
+            return v;
+          $else
+            Output v = alloc::new(tmem, Output::inner);
+            *v = deserialize_value{Output::inner}(deserializer, $config)!;
+            return v;
+          $endif
         $endif
       }
 

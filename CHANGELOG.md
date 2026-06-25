@@ -2,6 +2,13 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-06-25
+
+- Deprecated `json::debug_deserializer` and `json::tdebug_deserializer`. Use `debug: true` param instead
+- Added support for any InStream in the json deserializer
+- Added helper macros `json::deserialize` and `json::tdeserialize`
+- Added support for JSONC in the json deserializer (use the flavor param)
+
 ## 2026-05-21
 
 - Added support for an inline field in a struct (serialization only)
