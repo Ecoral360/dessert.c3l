@@ -72,7 +72,7 @@ fn void? XMLSerializer.serialize_slice_item_end(&self, usz idx) @dynamic {
 <* 
   Fields that start with @ will be serialized as attributes
 *>
-fn void? XMLSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? XMLSerializer.serialize_field_start(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   if (try attr = fmt.get("xml:attribute") && attr == "true") {
     if (self.attribute_mode) {
       self.output.append(" ");
@@ -94,7 +94,7 @@ fn void? XMLSerializer.serialize_field_start(&self, String name, FieldAttrs fmt)
   self.current_field.push(name);
 }
 
-fn void? XMLSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? XMLSerializer.serialize_field_end(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   if (self.attribute_mode) {
     self.output.append("\"");
   } else {

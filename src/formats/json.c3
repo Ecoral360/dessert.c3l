@@ -263,11 +263,11 @@ fn void? JsonSerializer.serialize_slice_end(&self, long len) @dynamic {
   self.output.push({ .kind = JsonValueKind.ARRAY, .value = { .l = l } });
 }
 
-fn void? JsonSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? JsonSerializer.serialize_field_start(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   self.output.push({.kind = STRING, .value = {.s = name}});
 }
 
-fn void? JsonSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? JsonSerializer.serialize_field_end(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   JsonValue value = self.output.pop()!;
   JsonValue key = self.output.pop()!;
   JsonValue obj = self.output.pop()!;
@@ -337,12 +337,12 @@ fn void? JsonStringSerializer.serialize_slice_item_end(&self, usz idx) @dynamic 
   self.output.append(",");
 }
 
-fn void? JsonStringSerializer.serialize_field_start(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? JsonStringSerializer.serialize_field_start(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   self.serialize_string(name)!;
   self.output.append(":");
 }
 
-fn void? JsonStringSerializer.serialize_field_end(&self, String name, FieldAttrs fmt) @dynamic {
+fn void? JsonStringSerializer.serialize_field_end(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   self.output.append(",");
 }
 

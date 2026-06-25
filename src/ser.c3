@@ -7,8 +7,8 @@ import std::collections::maybe;
 
 interface Serializer {
   fn void? struct_start(String name);
-  fn void? serialize_field_start(String name, FieldAttrs fmt);
-  fn void? serialize_field_end(String name, FieldAttrs fmt);
+  fn void? serialize_field_start(String name, FieldAttrs fmt, typeid field_type);
+  fn void? serialize_field_end(String name, FieldAttrs fmt, typeid field_type);
   fn void? struct_end(String name);
 
   fn void? serialize_slice_start(long len);
@@ -114,6 +114,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
     serializer.serialize_field_start(
       utils::@rename($config, $member.name, $struct_config),
       $config.fmt,
+      $member.type,
     )!;
   $endif
 
@@ -143,6 +144,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
     serializer.serialize_field_end(
       utils::@rename($config, $member.name, $struct_config),
       $config.fmt,
+      $member.type,
     )!;
   $endif
 }

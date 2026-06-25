@@ -4,6 +4,7 @@ All notable changes to dessert are documented here.
 
 ## 2026-06-25
 
+- Added `typeid field_type` to `serialize_field_start` and `serialize_field_end`
 - Deprecated `json::debug_deserializer` and `json::tdebug_deserializer`. Use `debug: true` param instead
 - Added support for any InStream in the json deserializer
 - Added helper macros `json::deserialize` and `json::tdeserialize`

@@ -134,9 +134,9 @@ fn void? HashMap.serialize(&self, Serializer s) {
   $if @is_serializable((Value){}):
     self.@each(; key, value) {
       String key_s = string::tformat("%s", key);
-      s.serialize_field_start(key_s, {})!;
+      s.serialize_field_start(key_s, {}, $Typeof(*self))!;
       serialize_value(s, value, {})!;
-      s.serialize_field_end(key_s, {})!;
+      s.serialize_field_end(key_s, {}, $Typeof(*self))!;
     };
   $else
     abort(@sprintf("Value not serializable '%s'", Value::name));
