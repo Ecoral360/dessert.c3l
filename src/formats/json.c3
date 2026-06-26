@@ -531,6 +531,9 @@ macro JsonDeserializer? debug_deserializer(Allocator allocator, input, JsonFlavo
 macro JsonDeserializer? tdebug_deserializer(input, JsonFlavor flavor = JSONC) @deprecated("Use `json::tdeserializer(..., debug: true)` instead") 
   => debug_deserializer(tmem, input, flavor);
 
+
+fn Allocator JsonDeserializer.get_allocator(&self) @dynamic => self.allocator;
+
 fn void? JsonDeserializer.struct_start(&self, String name) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != '{') {
