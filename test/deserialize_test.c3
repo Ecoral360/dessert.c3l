@@ -1188,3 +1188,23 @@ fn void test_json_strict_plain_json_ok() @test {
   assert(v.name == "ok");
   assert(v.score == 1.5);
 }
+
+// ── Tests: The correct allocator is used ────────────────────────
+
+$expand(derive(TestDeserializedAllocator::name, dessert));
+struct TestDeserializedAllocator {
+  int[] numbers;
+}
+
+// Test that the allocator is being used
+fn void test_allocator_used() @test {
+  String src = `{ "numbers": [1, 2, 3], "other": {} }`;
+  TestDeserializedAllocator v;
+  @pool() {
+    v = des::deserialize{TestDeserializedAllocator}(&&json::deserializer(mem, src))!!;
+  };
+
+  test::eq(v.numbers, (int[]) { 1, 2, 3 });
+  alloc::free(mem, v.numbers);
+}
+

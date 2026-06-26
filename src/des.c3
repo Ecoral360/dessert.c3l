@@ -85,6 +85,11 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
     $error "The first parameter must be a &self pointer.";
   $endif
 
+  Allocator allocator = tmem;
+  if (&deserializer.get_allocator) {
+    allocator = deserializer.get_allocator();
+  }
+
   $switch:
     $case $Typeof(value)::inner.kind == ENUM:
       var $type = $Typeof(value)::inner;
@@ -162,6 +167,7 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
 
       while(has_next_field(deserializer)!) {
         String? next_key = peek_field_name(deserializer);
+        defer (void) alloc::free(allocator, next_key);
         if (catch next_key) {
           io::eprintfn("Error deserializing after deserializing: %s", names);
           next_key!;
@@ -184,7 +190,8 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
         $else
           // Skip the value if not found
           (void) next_field_name(deserializer)!;
-          (void) deserialize{Object*}(deserializer)!;
+          Object* o = deserialize{Object*}(deserializer)!;
+          o.free(); // we must free the Object* allocated
         $endif
       }
   $endswitch
