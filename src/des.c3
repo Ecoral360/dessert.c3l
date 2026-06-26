@@ -338,6 +338,9 @@ macro deserialize_value(deserializer, DFieldConfig $config) <Output> {
         $endif
       }
 
+    $case Output == Object:
+      $error "Cannot deserialize to `Object`, only to `Object*`";
+
     $case Output::kind == CONSTDEF:
       value = (Output) deserialize{Output::inner}(deserializer)!;
       return value;
