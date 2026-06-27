@@ -191,7 +191,7 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
           // Skip the value if not found
           (void) next_field_name(deserializer)!;
           Object* o = deserialize{Object*}(deserializer)!;
-          if (o != null) o.free(); // we must free the Object* allocated
+          if (o) o.free(); // we must free the Object* allocated
         $endif
       }
   $endswitch
