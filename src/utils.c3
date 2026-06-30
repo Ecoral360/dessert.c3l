@@ -6,26 +6,23 @@ const char[256] TO_UPPER @private = { ['a'..'z'] = 'a' - 'A' };
 macro char @to_upper(char $c) => $c - TO_UPPER[$c];
 
 macro @is_maybe($value) @const {
-   return $defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value);
+   return $Typeof($value)::is_generic(Maybe);
 }
 
 macro @is_maybe_expr(#value) {
-  return $defined(#value.get()) &&& $defined(#value.get()!) &&& $defined(Maybe{$Typeof(#value.get()!!)} v = #value);
+  return $Typeof(#value)::is_generic(Maybe);
 }
 
 macro @is_maybe_type($Type) @const {
-  $Type $value;
-  return @is_maybe($value);
+  return $Type::is_generic(Maybe);
 }
 
 macro @get_maybe_inner_type($Type) {
   $if @is_maybe_type($Type):
-    $Type $t;
-    return @get_maybe_inner_type($typeof($t.value));
+    return @get_maybe_inner_type($Type::generic_args[0]);
   $endif
   return $Type;
 }
-
 
 macro @get_tag($Type, String $tag_name, $default_val) @const @builtin => $Type::has_tag($tag_name) ??? $Type::get_tag($tag_name) : $default_val;
 
