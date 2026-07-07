@@ -330,7 +330,7 @@ macro @default_unmapped(DFieldConfig $config) @local @const {
   $endswitch
 }
 
-macro deserialize_value(Deserializer deserializer, DFieldConfig $config) <Output> {
+fn Output? deserialize_value(Deserializer deserializer, DFieldConfig config) <Output> {
   Allocator allocator = tmem;
   if (&deserializer.get_allocator) {
     allocator = deserializer.get_allocator();
@@ -342,14 +342,14 @@ macro deserialize_value(Deserializer deserializer, DFieldConfig $config) <Output
         return null;
       } else {
         $if Output == Object*:
-          $if $defined(deserializer.next_any()):
+          if (&deserializer.next_any) {
             return deserializer.next_any()!;
-          $else
+          } else {
             return UNSUPPORTED_ANY~;
-          $endif
+          }
         $else
           Output v = alloc::new(allocator, Output::inner);
-          *v = deserialize_value{Output::inner}(deserializer, $config)!;
+          *v = deserialize_value{Output::inner}(deserializer, config)!;
           return v;
         $endif
       }
@@ -362,12 +362,12 @@ macro deserialize_value(Deserializer deserializer, DFieldConfig $config) <Output
       return value;
 
     $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer)):
-      $if Output != Object &&& Output::kind == STRUCT &&& !$config.flatten:
-        deserializer.struct_start(Output::name)!;
+      $if Output != Object &&& Output::kind == STRUCT:
+        if (!config.flatten) deserializer.struct_start(Output::name)!;
       $endif
       value.deserialize(deserializer)!;
-      $if Output != Object &&& Output::kind == STRUCT &&& !$config.flatten:
-        deserializer.struct_end(Output::name)!;
+      $if Output != Object &&& Output::kind == STRUCT:
+        if (!config.flatten) deserializer.struct_end(Output::name)!;
       $endif
       return value;
 
@@ -376,31 +376,27 @@ macro deserialize_value(Deserializer deserializer, DFieldConfig $config) <Output
         $error "Only a hashmap with string key can be deserialized";
       $endif
 
-      $if !$config.flatten:
-        deserializer.struct_start(Output::name)!;
-      $endif
-      var has_next_field = &deserializer.has_next_field;
-      var next_field_name = &deserializer.next_field_name;
+      if (!config.flatten) deserializer.struct_start(Output::name)!;
+      var has_next_field @safeinfer = &deserializer.has_next_field;
+      var next_field_name @safeinfer = &deserializer.next_field_name;
       while(has_next_field(deserializer)!) {
         String next_key = next_field_name(deserializer)!;
         value.set(next_key, deserialize{$Typeof(value.tvalues()[0])}(deserializer)!);
       }
-      $if !$config.flatten:
-        deserializer.struct_end(Output::name)!;
-      $endif
+      if (!config.flatten) deserializer.struct_end(Output::name)!;
       return value;
 
     $case $defined(value.get()) &&& $defined(value.get()!) &&& $defined(Maybe{$Typeof(value.get()!!)} v = value):
       if (deserializer.next_null()!) {
         return (Maybe{$Typeof(value.value)}) {};
       } else {
-        return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value)}(deserializer, $config)!);
+        return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value)}(deserializer, config)!);
       }
 
     $case $defined(value.len) &&& $defined(value[0]):
       List{Output::inner} elements;
       deserializer.slice_start()!;
-      var has_next_slice_item = &deserializer.has_next_slice_item;
+      var has_next_slice_item @safeinfer = &deserializer.has_next_slice_item;
       while(has_next_slice_item(deserializer)!) {
         elements.push(deserialize{Output::inner}(deserializer)!);
       }
