@@ -76,7 +76,7 @@ macro @is_deserializable($Output) @const {
 <*
   @require($defined(Deserializer d = deserializer))
 *>
-macro deserialize(Deserializer deserializer) <Output> => deserialize_value(deserializer, {});
+fn Output? deserialize(Deserializer deserializer) <Output> => deserialize_value(deserializer, {});
 
 
 <*
