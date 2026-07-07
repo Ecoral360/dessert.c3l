@@ -32,6 +32,8 @@ interface Deserializer {
 
   fn Object*? next_any() @optional;
 
+  fn String? next_enum_description() @optional;
+
   fn char? next_char() @optional;
   fn ichar? next_ichar() @optional;
 
@@ -112,7 +114,12 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
 
       $switch $enum_config.as:
         $case DESCRIPTION:
-          String name = deserializer.next_string()!;
+          String name;
+          if (&deserializer.next_enum_description) {
+            name = deserializer.next_enum_description()!;
+          } else {
+            name = deserializer.next_string()!;
+          }
           int found = -1;
           foreach(i, v : $type.names) {
             if (v == name) {
