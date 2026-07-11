@@ -378,9 +378,13 @@ enum JsonFlavor {
   JSONC,
 }
 
+alias ReadByteFn = fn char?(void*);
+
 struct JsonDeserializer(Deserializer) {
   // JsonValue input;
   InStream input;
+  ReadByteFn read_byte;
+
   Maybe{char} current;
   Allocator allocator;
   Maybe{String} peeked_field;
@@ -396,7 +400,7 @@ fn char? JsonDeserializer.next(&self) {
     return c;
   }
 
-  char c = self.input.read_byte()!;
+  char c = self.read_byte(self.input)!;
   if (self.is_debug) {
     if (c == '\n') {
       self.line += 1;
@@ -514,9 +518,10 @@ macro Type? tdeserialize(input, JsonFlavor flavor = JSONC) <Type> {
 macro JsonDeserializer deserializer(Allocator allocator, input, JsonFlavor flavor = JSONC, ..., bool debug = false) {
   $if $Typeof(input) == String:
     ByteReader reader;
-    return { .input = reader.init(input), .allocator = allocator, .flavor = flavor, .is_debug = debug };
+    InStream input_s = reader.init(input);
+    return { .input = input_s, .read_byte = &input_s.read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
   $else
-    return { .input = input, .allocator = allocator, .flavor = flavor, .is_debug = debug };
+    return { .input = input, .read_byte = &((InStream) input).read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
   $endif
 }
 
