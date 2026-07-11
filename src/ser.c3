@@ -335,6 +335,13 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
         serializer.struct_end($type.name)!;
       $endif
 
+    $case $Typeof(value)::kind == POINTER:
+      if (value == null) {
+        serializer.serialize_null()!;
+        return;
+      }
+      serialize_value(serializer, *value, $config)!;
+
     $case utils::@is_maybe_expr(value):
       var inner = value.get();
       if (catch inner) {

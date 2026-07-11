@@ -2,6 +2,10 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-07-11
+- Added support for `flatten` option on list
+- Added `deny_dup_keys` option to structs (default false)
+
 ## 2026-06-25
 
 - Added `typeid field_type` to `serialize_field_start` and `serialize_field_end`

@@ -54,4 +54,3 @@ macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) 
     $endswitch
   $endif
 }
-

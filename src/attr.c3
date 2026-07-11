@@ -107,6 +107,7 @@ enum CaseConvention : (String example) {
 
 struct DStructConfig {
   bool deny_unknown_fields;
+  bool deny_dup_keys;
   CaseConvention rename_all;
 }
 attrdef @DStruct(DStructConfig config) = @tag("dessert:ser:struct", config), @tag("dessert:des:struct", config);

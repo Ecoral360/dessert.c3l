@@ -61,7 +61,9 @@ interface Deserializable {
   fn void? deserialize(Deserializer deserializer);
 }
 
-macro bool @is_hashmap($Type) => $Type::qname.@starts_with("std::collections::map::HashMap");
+// macro bool @is_hashmap($Type) => $Type::qname.@starts_with("std::collections::map::HashMap");
+//
+// macro bool @is_list($Type) => $Type::qname.@starts_with("std::collections::list::List");
 
 macro bool String.@starts_with($self, String $other) @const {
   return $self.len >= $other.len &&& $self[:$other.len] == $other;
@@ -69,7 +71,7 @@ macro bool String.@starts_with($self, String $other) @const {
 
 macro @is_deserializable($Output) @const {
   $Output $value;
-  return $defined($value.deserialize) ||| @is_hashmap($Output) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
+  return $defined($value.deserialize) ||| $Output::is_generic(HashMap) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
     ($defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value));
 }
 
@@ -180,12 +182,14 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
           next_key!;
           return;
         }
-        if (names.contains(next_key)) {
-          return DUPLICATED_KEY~;
-        }
+        $if $struct_config.deny_dup_keys:
+          if (names.contains(next_key)) {
+            return DUPLICATED_KEY~;
+          }
+        $endif
 
         $foreach $member : $Typeof(value)::inner.members:
-          if (@des_field(deserializer, value, $member, next_key, names, $struct_config)!) {
+          if (@des_field(deserializer, value, $member, next_key, names, $struct_config, allocator)!) {
             names.push($member.name);
             continue;
           }
@@ -205,116 +209,146 @@ macro void? impl_deserialize(value, Deserializer deserializer) {
 }
 
 
-macro bool? @des_field(Deserializer deserializer, value, $member, next_key, List{String} names, DStructConfig $struct_config) @local {
+macro bool? @des_field(Deserializer deserializer, value, $member, next_key, List{String} names, DStructConfig $struct_config, allocator) @local {
   DFieldConfig $config = $member.has_tag("dessert:des") ??? $member.get_tag("dessert:des") : (DFieldConfig) {};
   var $name = utils::@rename($config, $member.name, $struct_config);
 
   $if $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
     $foreach $m : $member.type.members:
-      if (@des_field(deserializer, &value.$member, $m, next_key, {}, $member.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : $struct_config)!) return true;
+      if (@des_field(deserializer, &value.$member, $m, next_key, {}, $member.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : $struct_config, allocator)!) return true;
     $endforeach
   $endif
 
-  $if $config.flatten:
+  $if $config.flatten &&& !$member.type.is_generic(List) &&& !($member.type.kind == POINTER &&& $member.type.inner.is_generic(List)):
     value.$member = deserialize_value{$member.type}(deserializer, $config)!;
     return true;
+  $else 
+    if ($name == next_key) {
+      $if !$config.skip:
+        $switch:
+          $case $member.type.kind == UNION &&& $config.tagged.inlined:
+            $if $config.tagged.by.len == 0:
+              $error @sprintf("Inlined unions MUST have a 'tagged_by' value for deserialization (%s)", $member.name);
+            $endif
+
+            if (!names.contains($config.tagged.by)) {
+              io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', encountered inlined union field '%s' before tag key '%s'.", next_key, $config.tagged.by);
+              return INLINED_UNION_BEFORE_TAG~;
+            }
+
+            var tag_value = value.$eval($config.tagged.by);
+            var next_value = value.$member;
+
+            var $the_switch = "";
+            var $UType = $member.type;
+
+            $switch:
+              $case $config.tagged.match.by == ORDINAL ||| $Typeof(tag_value)::kind != ENUM:
+                $the_switch = "switch ((sz) tag_value) {";
+                $foreach $i, $m : $UType::members:
+                  $the_switch +++= @sprintf("case %s:\n", $i);
+                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                $endforeach
+                $the_switch +++= @default_unmapped($config);
+                $the_switch +++= "}";
+
+              $case $config.tagged.match.by == DESCRIPTION:
+                $the_switch = "switch (tag_value) {";
+                $foreach $i, $m : $UType::members:
+                  $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
+                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                $endforeach
+                $the_switch +++= @default_unmapped($config);
+                $the_switch +++= "}";
+
+              $case $config.tagged.match.by == FIELD:
+                var $field_name = $config.tagged.match.field;
+                $if $field_name.len == 0:
+                  $error "While serializing a tagged union: When the 'tagged.match_by' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
+                $endif
+
+                $if !$defined(tag_value.$field_name):
+                  $error @sprintf("Enum %s doesn't have field '%s'", $Typeof(tag_value)::name, $field_name);
+                $endif
+
+                $if $Typeof(tag_value.$field_name) != String:
+                  $error @sprintf("To be used as a union variant matcher, the field must be an string (was '%s')", $field_name);
+                $endif
+
+                $the_switch = @sprintf("switch (tag_value.%s) {", $field_name);
+                $foreach $i, $m : $UType::members:
+                  $the_switch +++= @sprintf("case \"%s\":\n", $m.name);
+                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                $endforeach
+                $the_switch +++= @default_unmapped($config);
+
+                $the_switch +++= "}";
+
+            $endswitch
+
+            $expand($the_switch);
+
+            value.$member = next_value;
+
+          $case $member.type.kind == UNION &&& !$config.tagged.inlined:
+          $case $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
+          $case $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
+            (void) deserializer.next_field_name()!;
+            deserializer.struct_start($member.type.name)!;
+            impl_deserialize(&value.$member, deserializer)!;
+            deserializer.struct_end($member.type.name)!;
+
+          $case $member.type.is_generic(List) &&& $config.flatten:
+            (void) deserializer.next_field_name()!;
+
+            $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0]}(deserializer, $config);
+            if (catch e = next_value) {
+              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+              next_value!;
+              return false;
+            }
+
+            if (!value.$member.is_initialized()) value.$member.init(allocator);
+            value.$member.push(next_value);
+
+          $case $member.type.kind == POINTER &&& $member.type.inner.is_generic(List) &&& $config.flatten:
+            (void) deserializer.next_field_name()!;
+
+            $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0]}(deserializer, $config);
+            if (catch e = next_value) {
+              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+              next_value!;
+              return false;
+            }
+
+            if (value.$member == null) {
+              value.$member = alloc::alloc(allocator, $member.type.inner);
+              value.$member.init(allocator);
+            }
+            value.$member.push(next_value);
+
+          $default:
+            (void) deserializer.next_field_name()!;
+
+            $Typefrom($member.type)? next_value = deserialize_value{$member.type}(deserializer, $config);
+            if (catch e = next_value) {
+              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+              next_value!;
+              return false;
+            }
+
+            value.$member = next_value;
+
+        $endswitch
+      $else
+        // skip the key
+        (void) deserializer.next_field_name()!;
+      $endif
+      return true;
+    }
+
+    return false;
   $endif
-
-  if ($name == next_key) {
-    $if !$config.skip:
-      $switch:
-        $case $member.type.kind == UNION &&& $config.tagged.inlined:
-          $if $config.tagged.by.len == 0:
-            $error @sprintf("Inlined unions MUST have a 'tagged_by' value for deserialization (%s)", $member.name);
-          $endif
-          
-          if (!names.contains($config.tagged.by)) {
-            io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', encountered inlined union field '%s' before tag key '%s'.", next_key, $config.tagged.by);
-            return INLINED_UNION_BEFORE_TAG~;
-          }
-
-          var tag_value = value.$eval($config.tagged.by);
-          var next_value = value.$member;
-
-          var $the_switch = "";
-          var $UType = $member.type;
-
-          $switch:
-            $case $config.tagged.match.by == ORDINAL ||| $Typeof(tag_value)::kind != ENUM:
-              $the_switch = "switch ((sz) tag_value) {";
-              $foreach $i, $m : $UType::members:
-                $the_switch +++= @sprintf("case %s:\n", $i);
-                $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {})!;\n", $i, $i);
-              $endforeach
-              $the_switch +++= @default_unmapped($config);
-              $the_switch +++= "}";
-
-            $case $config.tagged.match.by == DESCRIPTION:
-              $the_switch = "switch (tag_value) {";
-              $foreach $i, $m : $UType::members:
-                $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
-                $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {})!;\n", $i, $i);
-              $endforeach
-              $the_switch +++= @default_unmapped($config);
-              $the_switch +++= "}";
-
-            $case $config.tagged.match.by == FIELD:
-              var $field_name = $config.tagged.match.field;
-              $if $field_name.len == 0:
-                $error "While serializing a tagged union: When the 'tagged.match_by' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
-              $endif
-
-              $if !$defined(tag_value.$field_name):
-                $error @sprintf("Enum %s doesn't have field '%s'", $Typeof(tag_value)::name, $field_name);
-              $endif
-
-              $if $Typeof(tag_value.$field_name) != String:
-                $error @sprintf("To be used as a union variant matcher, the field must be an string (was '%s')", $field_name);
-              $endif
-
-              $the_switch = @sprintf("switch (tag_value.%s) {", $field_name);
-              $foreach $i, $m : $UType::members:
-                $the_switch +++= @sprintf("case \"%s\":\n", $m.name);
-                $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {})!;\n", $i, $i);
-              $endforeach
-              $the_switch +++= @default_unmapped($config);
-
-              $the_switch +++= "}";
-
-          $endswitch
-
-          $expand($the_switch);
-
-          value.$member = next_value;
-
-        $case $member.type.kind == UNION &&& !$config.tagged.inlined:
-        $case $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
-        $case $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
-          (void) deserializer.next_field_name()!;
-          deserializer.struct_start($member.type.name)!;
-          impl_deserialize(&value.$member, deserializer)!;
-          deserializer.struct_end($member.type.name)!;
-
-        $default:
-          (void) deserializer.next_field_name()!;
-          $Typefrom($member.type)? next_value = deserialize_value{$member.type}(deserializer, $config);
-          if (catch e = next_value) {
-            io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
-            next_value!;
-            return false;
-          }
-
-          value.$member = next_value;
-
-      $endswitch
-    $else
-      // skip the key
-      (void) deserializer.next_field_name()!;
-    $endif
-    return true;
-  }
-
-  return false;
 }
 
 macro @default_unmapped(DFieldConfig $config) @local @const {
@@ -341,17 +375,31 @@ fn Output? deserialize_value(Deserializer deserializer, DFieldConfig config) <Ou
       if (deserializer.next_null()!) {
         return null;
       } else {
-        $if Output == Object*:
-          if (&deserializer.next_any) {
-            return deserializer.next_any()!;
-          } else {
-            return UNSUPPORTED_ANY~;
-          }
-        $else
-          Output v = alloc::new(allocator, Output::inner);
-          *v = deserialize_value{Output::inner}(deserializer, config)!;
-          return v;
-        $endif
+        $switch:
+          $case Output == Object*:
+            if (&deserializer.next_any) {
+              return deserializer.next_any()!;
+            } else {
+              return UNSUPPORTED_ANY~;
+            }
+
+          $case Output::inner.is_generic(List):
+            value = alloc::alloc(allocator, Output::inner);
+            value.init(allocator);
+
+            deserializer.slice_start()!;
+            var has_next_slice_item @safeinfer = &deserializer.has_next_slice_item;
+            while(has_next_slice_item(deserializer)!) {
+              value.push(deserialize{Output::inner.generic_args[0]}(deserializer)!);
+            }
+            deserializer.slice_end()!;
+            return value;
+
+          $default:
+            value = alloc::new(allocator, Output::inner);
+            *value = deserialize_value{Output::inner}(deserializer, config)!;
+            return value;
+        $endswitch
       }
 
     $case Output == Object:
@@ -371,10 +419,12 @@ fn Output? deserialize_value(Deserializer deserializer, DFieldConfig config) <Ou
       $endif
       return value;
 
-    $case @is_hashmap($Typeof(value)):
+    $case Output::is_generic(HashMap):
       $if $Typeof(value.tkeys()[0]) != String:
         $error "Only a hashmap with string key can be deserialized";
       $endif
+
+      value.init(allocator);
 
       if (!config.flatten) deserializer.struct_start(Output::name)!;
       var has_next_field @safeinfer = &deserializer.has_next_field;
@@ -384,6 +434,17 @@ fn Output? deserialize_value(Deserializer deserializer, DFieldConfig config) <Ou
         value.set(next_key, deserialize{$Typeof(value.tvalues()[0])}(deserializer)!);
       }
       if (!config.flatten) deserializer.struct_end(Output::name)!;
+      return value;
+
+    $case Output::is_generic(List):
+      value.init(allocator);
+
+      deserializer.slice_start()!;
+      var has_next_slice_item @safeinfer = &deserializer.has_next_slice_item;
+      while(has_next_slice_item(deserializer)!) {
+        value.push(deserialize{Output::generic_args[0]}(deserializer)!);
+      }
+      deserializer.slice_end()!;
       return value;
 
     $case $defined(value.get()) &&& $defined(value.get()!) &&& $defined(Maybe{$Typeof(value.get()!!)} v = value):

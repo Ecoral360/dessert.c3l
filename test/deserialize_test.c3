@@ -53,7 +53,7 @@ struct DDenyUnknown @DStruct({ .deny_unknown_fields = true }) {
 fn void? DDenyUnknown.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Struct for duplicate key test
-struct DDupCheck {
+struct DDupCheck @DStruct({ .deny_dup_keys = true }) {
   String name;
   int    age;
 }
@@ -1206,5 +1206,80 @@ fn void test_allocator_used() @test {
 
   test::eq(v.numbers, (int[]) { 1, 2, 3 });
   alloc::free(mem, v.numbers);
+}
+
+
+$expand(derive(TestList::name, dessert));
+struct TestList {
+  List{int} numbers;
+}
+
+// Test that the allocator is being used
+fn void test_list() @test {
+  String src = `{ "numbers": [1, 2, 3] }`;
+  TestList v;
+  defer v.numbers.free();
+
+  @pool() {
+    v = des::deserialize{TestList}(&&json::deserializer(mem, src))!!;
+  };
+
+  test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
+}
+
+$expand(derive(TestListPointer::name, dessert));
+struct TestListPointer {
+  List{int}* numbers;
+}
+
+// Test that the allocator is being used
+fn void test_list_pointer() @test {
+  String src = `{ "numbers": [1, 2, 3] }`;
+  TestListPointer v;
+  defer v.numbers.free();
+  defer alloc::free(mem, v.numbers);
+
+  @pool() {
+    v = des::deserialize{TestListPointer}(&&json::deserializer(mem, src))!!;
+  };
+
+  test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
+}
+
+$expand(derive(TestListFlat::name, dessert));
+struct TestListFlat {
+  List{int} numbers @DField({ .flatten = true });
+}
+
+// Test that the allocator is being used
+fn void test_list_flat() @test {
+  String src = `{ "numbers": 1, "numbers": 2, "numbers": 3 }`;
+  TestListFlat v;
+  defer v.numbers.free();
+
+  @pool() {
+    v = des::deserialize{TestListFlat}(&&json::deserializer(mem, src))!!;
+  };
+
+  test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
+}
+
+$expand(derive(TestListFlatPointer::name, dessert));
+struct TestListFlatPointer {
+  List{int}* numbers @DField({ .flatten = true });
+}
+
+// Test that the allocator is being used
+fn void test_list_flat_pointer() @test {
+  String src = `{ "numbers": 1, "numbers": 2, "numbers": 3 }`;
+  TestListFlatPointer v;
+  defer v.numbers.free();
+  defer alloc::free(mem, v.numbers);
+
+  @pool() {
+    v = des::deserialize{TestListFlatPointer}(&&json::deserializer(mem, src))!!;
+  };
+
+  test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
 }
 
