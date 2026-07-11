@@ -6,161 +6,158 @@ import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
+$expand(derive(DPoint::name, dessert));
 struct DPoint {
   int x;
   int y;
 }
-fn void? DPoint.serialize(&self, Serializer serializer)     => ser::impl_serialize(self, serializer);
-fn void? DPoint.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DBox::name, dessert::deserialize));
 struct DBox {
   String label;
   DPoint center;
 }
-fn void? DBox.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithPointer::name, dessert::deserialize));
 struct DWithPointer {
   String name;
   DPoint* extra;
 }
-fn void? DWithPointer.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithArray::name, dessert::deserialize));
 struct DWithArray {
   String  tag;
   DPoint[] items;
 }
-fn void? DWithArray.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // skip=true on des: JSON field is consumed but not assigned to the struct field
+$expand(derive(DWithSkipDes::name, dessert::deserialize));
 struct DWithSkipDes {
   String kept;
   String dropped @DFieldDes({ .skip = true });
 }
-fn void? DWithSkipDes.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // rename: JSON key "alias" maps to field "original"
+$expand(derive(DWithRenameDes::name, dessert::deserialize));
 struct DWithRenameDes {
   String original @DFieldDes({ .rename = "alias" });
   int    count    @DFieldDes({ .rename = "num" });
 }
-fn void? DWithRenameDes.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // deny_unknown_fields: error on unexpected JSON keys
+$expand(derive(DDenyUnknown::name, dessert::deserialize));
 struct DDenyUnknown @DStruct({ .deny_unknown_fields = true }) {
   String name;
   int    value;
 }
-fn void? DDenyUnknown.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Struct for duplicate key test
+$expand(derive(DDupCheck::name, dessert::deserialize));
 struct DDupCheck @DStruct({ .deny_dup_keys = true }) {
   String name;
   int    age;
 }
-fn void? DDupCheck.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Default enum: serialize / deserialize by variant name
+$expand(derive(DDirection::name, dessert::deserialize));
 enum DDirection {
   NORTH,
   SOUTH,
   EAST,
   WEST,
 }
-fn void? DDirection.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithDirection::name, dessert::deserialize));
 struct DWithDirection {
   String     label;
   DDirection dir;
 }
-fn void? DWithDirection.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Ordinal enum: deserialize from integer position
+$expand(derive(DRank::name, dessert::deserialize));
 enum DRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
 }
-fn void? DRank.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithRank::name, dessert::deserialize));
 struct DWithRank {
   String label;
   DRank  rank;
 }
-fn void? DWithRank.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Field enum: deserialize by matching an associated field value
+$expand(derive(DColor::name, dessert::deserialize));
 enum DColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },
 }
-fn void? DColor.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithColor::name, dessert::deserialize));
 struct DWithColor {
   String label;
   DColor color;
 }
-fn void? DWithColor.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Invalid enum (no such variant) → INVALID_ENUM_VALUE
+$expand(derive(DWithDirInvalid::name, dessert::deserialize));
 struct DWithDirInvalid {
   DDirection dir;
 }
-fn void? DWithDirInvalid.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Fallback enum (DESCRIPTION mode): unknown variant → fallback value
+$expand(derive(DStatus::name, dessert::deserialize));
 enum DStatus @DEnumDes({ .fallback = "UNKNOWN" }) {
   ACTIVE,
   INACTIVE,
   UNKNOWN,
 }
-fn void? DStatus.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithStatus::name, dessert::deserialize));
 struct DWithStatus {
   String  label;
   DStatus status;
 }
-fn void? DWithStatus.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Fallback enum (FIELD mode): unknown field value → fallback value
+$expand(derive(DPriority::name, dessert::deserialize));
 enum DPriority : (String code) @DEnumDes({ .as = FIELD, .field = "code", .fallback = "NONE" }) {
   HIGH   { "high"   },
   MEDIUM { "medium" },
   NONE   { ""       },
 }
-fn void? DPriority.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DWithPriority::name, dessert::deserialize));
 struct DWithPriority {
   String    label;
   DPriority priority;
 }
-fn void? DWithPriority.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Maybe field
+$expand(derive(DWithMaybe::name, dessert::deserialize));
 struct DWithMaybe {
   String    name;
   Maybe{int} opt;
 }
-fn void? DWithMaybe.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // Full struct for roundtrip testing (needs both ser + des)
+$expand(derive(DFull::name, dessert));
 struct DFull {
   String name;
   int    age;
   bool   active;
   double score;
 }
-fn void? DFull.serialize(&self, Serializer serializer)     => ser::impl_serialize(self, serializer);
-fn void? DFull.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
+$expand(derive(DComplex::name, dessert));
 struct DComplex {
   String   title;
   DPoint   origin;
   DPoint[] path;
   DPoint*  target;
 }
-fn void? DComplex.serialize(&self, Serializer serializer)     => ser::impl_serialize(self, serializer);
-fn void? DComplex.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 // ── Tests: JSON primitives ────────────────────────────────────────────────────
 
@@ -600,15 +597,14 @@ fn void test_des_roundtrip_complex() @test {
 
 // ── Tests: inline sub-struct ──────────────────────────────────────────────────
 
+$expand(derive(DWithInlineSub::name, dessert));
 struct DWithInlineSub {
   int id;
-  struct pos { 
+  struct pos {
     int x;
     int y;
   }
 }
-fn void? DWithInlineSub.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DWithInlineSub.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_inline_substruct() @test {
   const String JSON = `{"id": 5, "pos": {"x": 11, "y": -2}}`;
@@ -645,12 +641,11 @@ union DUVariant {
   double f;
 }
 
+$expand(derive(DTaggedUnion::name, dessert));
 struct DTaggedUnion {
   int       tag;
   DUVariant val @DField({ .tagged = { .by = "tag", .inlined = true } });
 }
-fn void? DTaggedUnion.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DTaggedUnion.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_union_field() @test {
   const String JSON = `{"tag": 0, "val": 999}`;
@@ -678,6 +673,7 @@ fn void test_des_union_roundtrip() @test {
 
 // ── Tests: @DField tagged union (named) ──────────────────────────────────────
 
+$expand(derive(DDUnionNamed::name, dessert));
 struct DDUnionNamed {
   int kind;
   union p @DField({ .tagged = { .by = "kind" } }) {
@@ -686,8 +682,6 @@ struct DDUnionNamed {
     String third;
   }
 }
-fn void? DDUnionNamed.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DDUnionNamed.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_dunion_named_first() @test {
   const String JSON = `{"kind": 0, "p": {"first": 42}}`;
@@ -738,6 +732,7 @@ fn void test_des_dunion_named_roundtrip_second() @test {
 
 // ── Tests: @DField anonymous union (flattened) ────────────────────────────────
 
+$expand(derive(DDUnionAnon::name, dessert));
 struct DDUnionAnon {
   int kind;
   union @DField({ .tagged = { .by = "kind" } }) {
@@ -745,8 +740,6 @@ struct DDUnionAnon {
     double bar;
   }
 }
-fn void? DDUnionAnon.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DDUnionAnon.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_dunion_anon_first() @test {
   // foo is a top-level key (union flattened into parent)
@@ -796,6 +789,7 @@ fn void test_des_dunion_anon_roundtrip_second() @test {
 $expand(derive(DMBOrdinalTag::name, dessert));
 enum DMBOrdinalTag { ORD_FIRST, ORD_SECOND, ORD_THIRD }
 
+$expand(derive(DMatchByOrdinal::name, dessert));
 struct DMatchByOrdinal {
   DMBOrdinalTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = ORDINAL } } }) {
@@ -804,8 +798,6 @@ struct DMatchByOrdinal {
     String third;    // selected when kind ordinal == 2 (ORD_THIRD)
   }
 }
-fn void? DMatchByOrdinal.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DMatchByOrdinal.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_match_by_ordinal_first() @test {
   // ORD_FIRST (ordinal 0) → member[0] = first; payload value read at "payload" key
@@ -842,6 +834,7 @@ fn void test_des_match_by_ordinal_roundtrip() @test {
 $expand(derive(DMBDescTag::name, dessert));
 enum DMBDescTag { DESC_A, DESC_B, DESC_C }
 
+$expand(derive(DMatchByDesc::name, dessert));
 struct DMatchByDesc {
   DMBDescTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = DESCRIPTION } } }) {
@@ -850,8 +843,6 @@ struct DMatchByDesc {
     String desc_c;   // → case DESC_C
   }
 }
-fn void? DMatchByDesc.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DMatchByDesc.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_match_by_desc_first() @test {
   const String JSON = `{"kind": "DESC_A", "payload": 42}`;
@@ -891,6 +882,7 @@ enum DMBFieldTag : (String variant) {
   FLD_C { "fld_c" },
 }
 
+$expand(derive(DMatchByField::name, dessert));
 struct DMatchByField {
   DMBFieldTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "variant" } } }) {
@@ -899,8 +891,6 @@ struct DMatchByField {
     String fld_c;   // matched when kind.variant == "fld_c"
   }
 }
-fn void? DMatchByField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-fn void? DMatchByField.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_match_by_field_first() @test {
   const String JSON = `{"kind": "FLD_A", "payload": 7}`;
@@ -935,6 +925,7 @@ fn void test_des_match_by_field_roundtrip() @test {
 // EMPTY_STRUCT → consume payload as Object*. NULL → Maybe{int}. ZERO → int.
 
 // Default (no unmapped.as = ERROR): out-of-range kind raises UNMAPPED_UNION_VARIANT
+$expand(derive(DUnmappedError::name, dessert::deserialize));
 struct DUnmappedError {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true } }) {
@@ -943,7 +934,6 @@ struct DUnmappedError {
     String third;
   }
 }
-fn void? DUnmappedError.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_unmapped_as_error() @test {
   const String JSON = `{"kind": 99, "payload": 0}`;  // ordinal 99 doesn't match member 0, 1, or 2
@@ -956,6 +946,7 @@ fn void test_des_unmapped_as_error() @test {
 }
 
 // unmapped.as = EMPTY_STRUCT: out-of-range kind → consume payload as Object* {}
+$expand(derive(DUnmappedEmptyStruct::name, dessert::deserialize));
 struct DUnmappedEmptyStruct {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = EMPTY_STRUCT } } }) {
@@ -963,7 +954,6 @@ struct DUnmappedEmptyStruct {
     double second;
   }
 }
-fn void? DUnmappedEmptyStruct.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_unmapped_as_empty_struct() @test {
   const String JSON = `{"kind": 99, "payload": {}}`;
@@ -972,6 +962,7 @@ fn void test_des_unmapped_as_empty_struct() @test {
 }
 
 // unmapped.as = NULL: out-of-range kind → consume payload as null
+$expand(derive(DUnmappedNull::name, dessert::deserialize));
 struct DUnmappedNull {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = NULL } } }) {
@@ -979,7 +970,6 @@ struct DUnmappedNull {
     double second;
   }
 }
-fn void? DUnmappedNull.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_unmapped_as_null() @test {
   const String JSON = `{"kind": 99, "payload": null}`;
@@ -988,6 +978,7 @@ fn void test_des_unmapped_as_null() @test {
 }
 
 // unmapped.as = ZERO: out-of-range kind → consume payload as int
+$expand(derive(DUnmappedZero::name, dessert::deserialize));
 struct DUnmappedZero {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = ZERO } } }) {
@@ -995,7 +986,6 @@ struct DUnmappedZero {
     double second;
   }
 }
-fn void? DUnmappedZero.deserialize(&self, Deserializer deserializer) => des::impl_deserialize(self, deserializer);
 
 fn void test_des_unmapped_as_zero() @test {
   const String JSON = `{"kind": 99, "payload": 0}`;

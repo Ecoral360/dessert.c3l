@@ -3,31 +3,23 @@ import std;
 import dessert;
 import json;
 import csv;
+import derive;
 
+$expand(derive(Animal::name, dessert));
 struct Animal {
   String name;
   String specie;
 }
 
-fn void? Animal.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
 
-fn void? Animal.deserialize(&self, Deserializer deserializer) => 
-  des::impl_deserialize(self, deserializer);
-
-
+$expand(derive(State::name, dessert));
 enum State : (String name) {
   WAITING { "wait" },
   SLEEPING { "sleep" },
   RUNNING { "run" },
 }
 
-fn void? State.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
-
-fn void? State.deserialize(&self, Deserializer deserializer) => 
-  des::impl_deserialize(self, deserializer);
-
+$expand(derive(Person::name, dessert));
 struct Person {
   int age;
   String name;
@@ -42,13 +34,6 @@ fn bool Person.skip_serializing_age(&self) {
   return self.age == 24;
 }
 
-fn void? Person.serialize(&self, Serializer serializer) => 
-  ser::impl_serialize(self, serializer);
-
-fn void? Person.deserialize(&self, Deserializer deserializer) =>
-  des::impl_deserialize(self, deserializer);
-
-
 fn void t() @test {
   Animal sharpie = { .name = "Sharpie", .specie = "Cat" };
   Person connor = { .age = 20, .name = "Connor", .is_cool = true };
@@ -62,7 +47,7 @@ fn void t() @test {
 
   io::printn(json.to_pretty_string());
 
-  Person p = des::deserialize{Person}(&&json::tdeserializer(json.to_string()))!!;
+  Person p = json::tdeserialize{Person}(json.to_string())!!;
 
   io::printfn("%s\n%s", string::from_struct(tmem, p), string::from_struct(tmem, p.pets[0]));
 
@@ -85,18 +70,13 @@ const String TEST_DATA = `{
   "wait": null
 }`;
 
+$expand(derive(Function::name, dessert));
 struct Function @DStruct({ .deny_unknown_fields = true })
 {
   String name;
   String arguments;
   long x;
 }
-
-fn void? Function.serialize(&self, Serializer serializer) =>
-  ser::impl_serialize(self, serializer);
-
-fn void? Function.deserialize(&self, Deserializer deserializer) =>
-  des::impl_deserialize(self, deserializer);
 
 fn void test_escape() @test {
   Function fun = {
@@ -109,7 +89,7 @@ fn void test_escape() @test {
   json.print()!!;
   io::printfn("\njson => %s", json.to_string()!!);
 
-  Function? f = des::deserialize{Function}(&&json::tdeserializer(TEST_DATA));
+  Function? f = json::tdeserialize{Function}(TEST_DATA);
   if (catch err = f) {
     assert(err == des::UNKNOWN_FIELD);
   } else {
@@ -119,15 +99,13 @@ fn void test_escape() @test {
 }
 
 
+$expand(derive(Meteo::name, dessert::serialize));
 struct Meteo {
   String date;
   double temperature;
   double pressure;
   String locatisation;
 }
-
-fn void? Meteo.serialize(&self, Serializer serializer) =>
-  ser::impl_serialize(self, serializer);
 
 fn void test_csv() @test {
   Meteo[10] meteos = {
@@ -159,6 +137,6 @@ const String TEST_DATA_2 = `{
 }`;
 
 fn void test_escape2() @test {
-  Object* f = des::deserialize{Object*}(&&json::tdebug_deserializer(TEST_DATA_2))!!;
+  Object* f = json::tdeserialize{Object*}(TEST_DATA_2)!!;
   io::printfn("\nf => %s", string::from_struct(tmem, f));
 }
