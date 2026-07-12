@@ -470,6 +470,8 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       return value;
 
     $case Output::is_generic(List):
+      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
       value.init(allocator);
 
       deserializer.slice_start()!;
