@@ -431,7 +431,7 @@ fn bool JsonDeserializer.has_next(&self) {
   whitespace set we can cheaply recognize.
 *>
 macro bool is_json5_space(char c) @local {
-  switch (c) {
+  switch (c) @jump {
     case ' ':
     case '\t':
     case '\n':
@@ -458,21 +458,19 @@ macro bool is_ident_part(char c) @local {
   recognizes the extended whitespace set.
 *>
 fn void? JsonDeserializer.skip_whitespace(&self) {
+  bool is_jsonc = self.flavor == JSONC;
   while (self.has_next()) {
     char c = self.peek()!;
 
-    bool is_space = self.flavor == JSONC
-      ? is_json5_space(c)
-      : (ascii::is_blank(c) || c == '\n');
-    if (is_space) {
+    if (is_jsonc ? is_json5_space(c) : (ascii::is_blank(c) || c == '\n')) {
       (void) self.next()!;
       continue;
     }
 
-    if (self.flavor == JSONC && c == '/') {
+    if (is_jsonc && c == '/') {
       (void) self.next()!;
       char kind = self.next()!;
-      switch (kind) {
+      switch (kind) @jump {
         case '/':
           // line comment: consume until newline (or end of input)
           while (self.has_next()) {

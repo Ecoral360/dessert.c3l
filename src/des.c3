@@ -55,6 +55,7 @@ interface Deserializer {
 
 faultdef VALIDATOR_ERROR;
 faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE, UNKNOWN_FIELD, INLINED_UNION_BEFORE_TAG, UNMAPPED_UNION_VARIANT;
+faultdef UNSUPPORTED_DATA_TYPE, UNSUPPORTED_ANY;
 
 // Should be treated as a protocol, don't derive it directly
 interface Deserializable {
@@ -81,7 +82,7 @@ macro @is_deserializable($Output) @const {
 macro Output? deserialize(deserializer) <Output> => deserialize_value{Output, $Typeof(deserializer)}(deserializer, {});
 
 <* thanks to @nonnorm for this helper macro ! *>
-macro @method_fallback(des, #method, #fallback) {
+macro @method_fallback(des, #method, #fallback) @local {
   var $method = $stringify(#method);
   $switch:
     $case $Typeof(des) == Deserializer:
@@ -94,6 +95,36 @@ macro @method_fallback(des, #method, #fallback) {
     $default:
       return #fallback;
   $endswitch
+}
+
+<* thanks to @nonnorm for this helper macro ! *>
+macro @method_fallback_chain(des, #method, ...) @local {
+	var $method = $stringify(#method);
+	$if $Typeof(des) == Deserializer:
+		if (&des.$method) {
+			return des.$method();
+		}
+
+		$for var $i = 0; $i < $vaarg.len; $i++:
+			var $fallback = $stringify($vaarg[$i]);
+			// Would prefer to use else if, but it probably doesn't matter
+			if (&des.$fallback) {
+				return des.$fallback();
+			}
+		$endfor
+	$endif
+
+	$if $defined(des.$method):
+		return des.$method();
+  $else
+    $for var $i = 0; $i < $vaarg.len; $i++:
+      var $fallback = $stringify($vaarg[$i]);
+      $if $defined(des.$fallback):
+        return des.$fallback();
+      $endif
+    $endfor
+  $endif
+
 }
 
 fn void? impl_deserialize(Value value, Des deserializer) <Value, Des> {
@@ -372,8 +403,6 @@ macro @default_unmapped(DFieldConfig $config) @local @const {
 }
 
 fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des> {
-  Allocator allocator = $defined(deserializer.get_allocator) ??? deserializer.get_allocator() : tmem;
-
   Output value;
   $switch:
     $case Output::kind == POINTER:
@@ -385,6 +414,8 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             return @method_fallback(deserializer, next_any, UNSUPPORTED_ANY~)!;
 
           $case Output::inner.is_generic(List):
+            Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
             value = alloc::alloc(allocator, Output::inner);
             value.init(allocator);
 
@@ -396,6 +427,8 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             return value;
 
           $default:
+            Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
             value = alloc::new(allocator, Output::inner);
             *value = deserialize_value{Output::inner, Des}(deserializer, config)!;
             return value;
@@ -420,6 +453,8 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       return value;
 
     $case Output::is_generic(HashMap):
+      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
       $if $Typeof(value.tkeys()[0]) != String:
         $error "Only a hashmap with string key can be deserialized";
       $endif
@@ -451,7 +486,9 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
         return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value), Des}(deserializer, config)!);
       }
 
-    $case $defined(value.len) &&& $defined(value[0]):
+    $case $defined(value.len) &&& $defined(value[0]) &&& Output != String:
+      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
       List{Output::inner} elements;
       deserializer.slice_start()!;
       while(deserializer.has_next_slice_item()!) {
@@ -461,8 +498,57 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       return elements.to_array(allocator);
 
     $default:
-      $error "The value cannot be deserialize: " +++ $Typeof(value)::name;
+      return @deserialize_primitive_value(Output, deserializer)!;
 
   $endswitch
 }
 
+
+macro @deserialize_primitive_value($Type, des) @local {
+  $switch $Type:
+    $case String:
+      return des.next_string()!;
+
+    $case char:
+      return @method_fallback(des, next_char, des.next_string()[0])!;
+
+    $case bool:
+      return des.next_bool()!;
+
+    $case ichar:
+      return (ichar) @method_fallback(des, next_ichar, des.next_long())!;
+
+    $case short:
+      return (short) @method_fallback(des, next_short, des.next_long())!;
+
+    $case int:
+      return (int) @method_fallback(des, next_int, des.next_long())!;
+
+    $case long:
+      return des.next_long()!;
+
+    $case int128:
+      return @method_fallback(des, next_int128, UNSUPPORTED_DATATYPE~)!;
+
+    $case ushort:
+      return (ushort) @method_fallback_chain(des, next_ushort, next_ulong, next_long)!;
+
+    $case uint:
+      return (uint) @method_fallback_chain(des, next_uint, next_ulong, next_long)!;
+
+    $case ulong:
+      return (ulong) @method_fallback(des, next_ulong, des.next_long())!;
+
+    $case uint128:
+      return @method_fallback(des, next_uint128, UNSUPPORTED_DATATYPE~)!;
+
+    $case float:
+      return (float) @method_fallback(des, next_float, des.next_double())!;
+
+    $case double:
+      return des.next_double()!;
+
+    $default:
+      $error "The value cannot be deserialize: " +++ $Type::name;
+  $endswitch
+}
