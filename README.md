@@ -41,6 +41,8 @@ The library is built around two core interfaces:
 - Unknown field skipping (or rejection via `deny_unknown_fields`)
 - Deserialize arbitrary data into `Object` fields
 - Descriptive error messages on deserialization failure
+- Support for gathering extra fields in a `HashMap` (with `flatten`) 
+- Support for aggregated field in a `List` (with `flatten`)
 - Support for all primitive types: `bool`, `char`, `ichar`, `short`, `int`, `long`, `int128`, `ushort`, `uint`, `ulong`, `uint128`, `float`, `double`, `String`, `ZString`
 
 ### JSON
@@ -659,6 +661,7 @@ Dessert uses C3's fault system for error handling:
 - [ ] Deserialize from CSV / XML
 - [ ] Field aliases (`.aliases`)
 - [ ] Default values for missing fields
+- [ ] Support field validation when deserializing
 
 ## License
 
