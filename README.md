@@ -4,7 +4,7 @@ A universal serialization and deserialization library for the [C3 programming la
 
 ## Goal
 
-Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats. It ships three formats out of the box — **JSON** (serialize + deserialize), **CSV** (serialize), and **XML** (serialize) — and lets you add your own by implementing two interfaces. It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
+Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats. It ships three formats out of the box - **JSON** (serialize + deserialize), **CSV** (serialize), and **XML** (serialize) - and lets you add your own by implementing two interfaces. It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
 
 The library is built around two core interfaces:
 - **Serializer**: Converts C3 structs into a target format
@@ -52,26 +52,26 @@ The `dessert::format::json` module (reachable as `json::`) provides a complete J
 - `json::string_serializer` produces a JSON string directly (also allocator-optional, defaults to `tmem`).
 
 **Deserializers** take a `String` **or** an `InStream` as input:
-- `json::deserializer(allocator, input, flavor = JSONC)` — deserializer with a custom allocator.
-- `json::tdeserializer(input, flavor = JSONC)` — convenience deserializer that uses `tmem`.
+- `json::deserializer(allocator, input, flavor = JSONC)` - deserializer with a custom allocator.
+- `json::tdeserializer(input, flavor = JSONC)` - convenience deserializer that uses `tmem`.
 - Convenience one-shot macros: `json::deserialize{Type}(allocator, input, flavor)` and `json::tdeserialize{Type}(input, flavor)`.
 
-**JSON flavor:** the `JsonFlavor` enum selects the parsing dialect — `JSON` (strict) or `JSONC` (a relaxed, JSON5-style superset that allows comments and trailing commas). The default for every deserializer is `JSONC`.
+**JSON flavor:** the `JsonFlavor` enum selects the parsing dialect - `JSON` (strict) or `JSONC` (a relaxed, JSON5-style superset that allows comments and trailing commas). The default for every deserializer is `JSONC`.
 
-> The `debug_deserializer` / `tdebug_deserializer` factories are deprecated — pass `debug: true` to `json::deserializer` / `json::tdeserializer` instead.
+> The `debug_deserializer` / `tdebug_deserializer` factories are deprecated - pass `debug: true` to `json::deserializer` / `json::tdeserializer` instead.
 
 ### CSV
 
 The `dessert::format::csv` module (reachable as `csv::`) provides a CSV serializer for converting slices of structs into CSV format. Only serialization is supported for now (no CSV deserializer).
 
-- `csv::serializer()` — takes no allocator. Its `.result()` returns a `CSVDocument`; call `.to_string()` on that document to get the CSV text.
+- `csv::serializer()` - takes no allocator. Its `.result()` returns a `CSVDocument`; call `.to_string()` on that document to get the CSV text.
 
 ### XML
 
 The `dessert::format::xml` module (reachable as `xml::`) provides an XML serializer. Only serialization is supported for now (no XML deserializer yet).
 
-- `xml::serializer()` — takes no allocator. Its `.result()` returns the produced XML `String`.
-- `xml::pretty_string(xml, indent_size = 2)` — reformats an XML string with indentation.
+- `xml::serializer()` - takes no allocator. Its `.result()` returns the produced XML `String`.
+- `xml::pretty_string(xml, indent_size = 2)` - reformats an XML string with indentation.
 - Fields tagged with the `xml:attribute` format attribute are emitted as XML attributes on the enclosing element instead of as child elements. Attribute fields **must** be declared before any element fields of the same struct:
 
 ```c3
@@ -222,7 +222,7 @@ struct UserRecord @DStructSer({ .rename_all = CAMEL_CASE }) {
 
 **Union attributes:**
 
-Use `@DField({ .tagged = { .by = "field" } })` on a union member to enable tagged dispatch — the value of the named sibling field determines which union member is active. All union configuration lives in the `tagged` sub-struct of `@DField`.
+Use `@DField({ .tagged = { .by = "field" } })` on a union member to enable tagged dispatch - the value of the named sibling field determines which union member is active. All union configuration lives in the `tagged` sub-struct of `@DField`.
 
 **`DFieldUnionConfig` options (used as `.tagged = { ... }`):**
 
@@ -259,7 +259,7 @@ Use `@DField({ .tagged = { .by = "field" } })` on a union member to enable tagge
 
 **Five output patterns:**
 
-*Pattern A — named union field, not inlined (active member wrapped in a nested object):*
+*Pattern A - named union field, not inlined (active member wrapped in a nested object):*
 
 ```c3
 $expand(derive(Message::name, dessert));
@@ -275,7 +275,7 @@ struct Message {
 // kind=2 → {"kind":2,"payload":{"text":"hi"}}
 ```
 
-*Pattern B — anonymous union field (active member flattened into parent):*
+*Pattern B - anonymous union field (active member flattened into parent):*
 
 ```c3
 $expand(derive(Message::name, dessert));
@@ -291,7 +291,7 @@ struct Message {
 // kind=2 → {"kind":2,"text":"hi"}
 ```
 
-*Pattern C — named union field with `.inlined = true` (active value inlined, no wrapping object):*
+*Pattern C - named union field with `.inlined = true` (active value inlined, no wrapping object):*
 
 ```c3
 union Variant {
@@ -309,7 +309,7 @@ struct Response {
 // tag=1 → {"tag":1,"val":{"x":1,"y":2}}
 ```
 
-*Pattern D — enum tag with `match.by = DESCRIPTION` (match by enum value name):*
+*Pattern D - enum tag with `match.by = DESCRIPTION` (match by enum value name):*
 
 ```c3
 $expand(derive(Shape::name, dessert));
@@ -326,7 +326,7 @@ struct Drawing {
 }
 ```
 
-*Pattern E — enum tag with `match.by = FIELD` (match by enum associated String field):*
+*Pattern E - enum tag with `match.by = FIELD` (match by enum associated String field):*
 
 ```c3
 $expand(derive(Format::name, dessert));
