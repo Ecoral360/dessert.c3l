@@ -80,9 +80,9 @@ struct DFieldConfig {
   DFieldUnionConfig tagged;
 }
 
-attrdef @DField(DFieldConfig config) = @tag("dessert:ser", config), @tag("dessert:des", config);
-attrdef @DFieldSer(DFieldConfig config) = @tag("dessert:ser", config);
-attrdef @DFieldDes(DFieldConfig config) = @tag("dessert:des", config);
+attrdef @DField(DFieldConfig config) = @tag("dessert:ser:field", config), @tag("dessert:des:field", config);
+attrdef @DFieldSer(DFieldConfig config) = @tag("dessert:ser:field", config);
+attrdef @DFieldDes(DFieldConfig config) = @tag("dessert:des:field", config);
 
 struct DEnumConfig {
   DessertEnum as;

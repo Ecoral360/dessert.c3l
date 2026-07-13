@@ -71,7 +71,7 @@ macro impl_serialize(s, Serializer serializer) {
       var $type = $Typeof(s)::inner;
       DStructConfig $struct_config = $type.has_tag("dessert:ser:struct") ??? $type.get_tag("dessert:ser:struct") : {};
       $foreach $i, $member : $type.members:
-        DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : {};
+        DFieldConfig $config = $member.has_tag("dessert:ser:field") ??? $member.get_tag("dessert:ser:field") : {};
         $if $i == 0 &&& $type.is_substruct:
           $config = {...$config, .flatten = true};
         $endif
@@ -152,7 +152,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
 macro @impl_serialize_struct($Type, s, Serializer serializer, DStructConfig $struct_config_parent) @local {
   DStructConfig $struct_config = $Type::has_tag("dessert:ser:struct") ??? $Type::get_tag("dessert:ser:struct") : $struct_config_parent;
   $foreach $member : $Type::members:
-    DFieldConfig $config = $member.has_tag("dessert:ser") ??? $member.get_tag("dessert:ser") : (DFieldConfig) {};
+    DFieldConfig $config = $member.has_tag("dessert:ser:field") ??? $member.get_tag("dessert:ser:field") : (DFieldConfig) {};
     $if !$config.skip:
       $if $config.validator.len > 0: 
         if (!s.$eval($config.validator)(s.$member)) {

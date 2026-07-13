@@ -671,6 +671,7 @@ fn void JsonDeserializer.print_error(&self, String message) {
 }
 
 macro void? skip_next_string(JsonDeserializer* self, char $quote) @local {
+  self.next()!; // skip the first quote
   while LOOP: (true) {
     switch (self.next()!) @jump {
       case $quote: break LOOP;
@@ -687,33 +688,40 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
   switch {
     case next == '"':
       skip_next_string(self, '"')!;
+      return;
 
     case next == '\'':
       if (!jsonc) return UNEXPECTED_CHARACTER~;
       skip_next_string(self, '\'')!;
+      return;
 
     case next == 't':
       $foreach $v : "true": // skips 'true'
         self.next()!;
       $endforeach
+      return;
 
     case next == 'f':
       $foreach $v : "false": // skips 'false'
         self.next()!;
       $endforeach
+      return;
 
     case next == 'n':
       $foreach $v : "null": // skips 'null'
         self.next()!;
       $endforeach
+      return;
 
     case next == '{':
       self.struct_start("")!;
       while(self.has_next_field()!) {
-        self.next_field_name()!;
+        String next_key = self.next_field_name()!;
+        defer alloc::free(self.allocator, next_key);
         self.skip_next_value()!;
       }
       self.struct_end("")!;
+      return;
 
     case next == '[':
       self.slice_start()!;
@@ -721,6 +729,7 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
         self.skip_next_value()!;
       }
       self.slice_end()!;
+      return;
 
     case ascii::is_digit(next):
     case next == '-':
@@ -733,6 +742,7 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
         return UNEXPECTED_CHARACTER~;
       }
       self.next_double()!;
+      return;
   }
 
   return UNEXPECTED_CHARACTER~;

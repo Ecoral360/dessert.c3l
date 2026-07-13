@@ -252,7 +252,7 @@ macro void? @skip_next_value_fallback(deserializer) @local {
 }
 
 macro bool? @des_field(deserializer, value, $member, next_key, List{String} names, DStructConfig $struct_config, allocator) @local {
-  DFieldConfig $config = $member.has_tag("dessert:des") ??? $member.get_tag("dessert:des") : (DFieldConfig) {};
+  DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
   var $name = utils::@rename($config, $member.name, $struct_config);
 
   $if $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
