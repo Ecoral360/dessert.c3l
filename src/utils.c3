@@ -2,9 +2,6 @@ module dessert::utils;
 
 import std::collections::maybe;
 
-const char[256] TO_UPPER @private = { ['a'..'z'] = 'a' - 'A' };
-macro char @to_upper(char $c) => $c - TO_UPPER[$c];
-
 macro @is_maybe($value) @const {
    return $Typeof($value)::is_generic(Maybe);
 }
@@ -35,16 +32,25 @@ macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) 
         return $name;
 
       $case CAMEL_CASE:
-        String $new_name = "";
-        $for int $i = 0; $i < $name.len; $i++:
-          $if $name[$i] == '_':
-            $new_name +++= @to_upper($name[$i+1]);
-            $i++;
-          $else
-            $new_name +++= $name[$i];
-          $endif
-        $endfor
-        return $new_name;
+        return @str_camelcase($name);
+
+      $case PASCAL_CASE:
+        return @str_pascalcase($name);
+
+      $case SNAKE_CASE:
+        return @str_snakecase($name);
+
+      $case CONSTANT_CASE:
+        return @str_constantcase($name);
+
+      $case LOWER_CASE:
+        return @str_lower($name);
+
+      $case UPPER_CASE:
+        return @str_upper($name);
+
+      $case KEBAB_CASE:
+        return @str_replace(@str_snakecase($name), "_", "-");
 
       $default:
         $error @sprintf("CaseConvention %s not supported for now.");

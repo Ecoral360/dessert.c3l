@@ -2,6 +2,11 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-07-13
+- Added the optional `skip_next_value` for the deserializer
+- Added support for all the `rename_all` options
+- In rename_all option, renamed `SCREAMING_SNAKE_CASE` to `CONSTANT_CASE`
+ 
 ## 2026-07-11
 - Added support for `flatten` option on list
 - Added `deny_dup_keys` option to structs (default false)

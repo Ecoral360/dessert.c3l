@@ -32,6 +32,8 @@ interface Deserializer {
 
   fn Object*? next_any() @optional;
 
+  fn void? skip_next_value() @optional;
+
   fn String? next_enum_description() @optional;
 
   fn char? next_char() @optional;
@@ -72,8 +74,7 @@ macro bool String.@starts_with($self, String $other) @const {
 
 macro @is_deserializable($Output) @const {
   $Output $value;
-  return $defined($value.deserialize) ||| $Output::is_generic(HashMap) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| 
-    ($defined($value.get()) &&& $defined($value.get()!) &&& $defined(Maybe{$Typeof($value.get()!!)} v = $value));
+  return $defined($value.deserialize) ||| $Output::is_generic(HashMap) ||| ($defined($value.len) &&& $defined($value[0]) &&& @is_deserializable($Typeof($value[0]))) ||| $Output::is_generic(Maybe);
 }
 
 <*
@@ -239,13 +240,16 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
         $else
           // Skip the value if not found
           (void) deserializer.next_field_name()!;
-          Object* o = deserialize{Object*}(deserializer)!;
-          if (o) o.free(); // we must free the Object* allocated
+          @method_fallback(deserializer, skip_next_value, @skip_next_value_fallback(deserializer))!;
         $endif
       }
   $endswitch
 }
 
+macro void? @skip_next_value_fallback(deserializer) @local {
+  Object* o = deserialize{Object*}(deserializer)!;
+  if (o) o.free(); // we must free the Object* allocated
+}
 
 macro bool? @des_field(deserializer, value, $member, next_key, List{String} names, DStructConfig $struct_config, allocator) @local {
   DFieldConfig $config = $member.has_tag("dessert:des") ??? $member.get_tag("dessert:des") : (DFieldConfig) {};
@@ -481,7 +485,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       deserializer.slice_end()!;
       return value;
 
-    $case $defined(value.get()) &&& $defined(value.get()!) &&& $defined(Maybe{$Typeof(value.get()!!)} v = value):
+    $case Output::is_generic(Maybe):
       if (deserializer.next_null()!) {
         return (Maybe{$Typeof(value.value)}) {};
       } else {

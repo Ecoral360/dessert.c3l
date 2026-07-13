@@ -670,6 +670,75 @@ fn void JsonDeserializer.print_error(&self, String message) {
   io::eprintfn("At %d:%d: %s", self.line, self.col, message);
 }
 
+macro void? skip_next_string(JsonDeserializer* self, char $quote) @local {
+  while LOOP: (true) {
+    switch (self.next()!) @jump {
+      case $quote: break LOOP;
+      case '\\': self.next()!;
+      default:
+    }
+  }
+}
+
+fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
+  self.skip_whitespace()!;
+  char next = self.peek()!;
+  bool jsonc = self.flavor == JSONC;
+  switch {
+    case next == '"':
+      skip_next_string(self, '"')!;
+
+    case next == '\'':
+      if (!jsonc) return UNEXPECTED_CHARACTER~;
+      skip_next_string(self, '\'')!;
+
+    case next == 't':
+      $foreach $v : "true": // skips 'true'
+        self.next()!;
+      $endforeach
+
+    case next == 'f':
+      $foreach $v : "false": // skips 'false'
+        self.next()!;
+      $endforeach
+
+    case next == 'n':
+      $foreach $v : "null": // skips 'null'
+        self.next()!;
+      $endforeach
+
+    case next == '{':
+      self.struct_start("")!;
+      while(self.has_next_field()!) {
+        self.next_field_name()!;
+        self.skip_next_value()!;
+      }
+      self.struct_end("")!;
+
+    case next == '[':
+      self.slice_start()!;
+      while(self.has_next_slice_item()!) {
+        self.skip_next_value()!;
+      }
+      self.slice_end()!;
+
+    case ascii::is_digit(next):
+    case next == '-':
+    case next == '+':
+    case next == '.':
+    case next == 'I':
+    case next == 'N':
+      // '+', '.', 'I' (Infinity) and 'N' (NaN) only start a number in JSONC.
+      if (!jsonc && (next == '+' || next == '.' || next == 'I' || next == 'N')) {
+        return UNEXPECTED_CHARACTER~;
+      }
+      self.next_double()!;
+  }
+
+  return UNEXPECTED_CHARACTER~;
+
+}
+
 fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   self.skip_whitespace()!;
   char next = self.peek()!;

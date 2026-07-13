@@ -99,7 +99,7 @@ enum CaseConvention : (String example) {
   KEBAB_CASE { "kebab-case" },
   CAMEL_CASE { "camelCase" },
   PASCAL_CASE { "PascalCase" },
-  SCREAMING_SNAKE_CASE { "SCREAMING_SNAKE_CASE" },
+  CONSTANT_CASE { "CONSTANT_CASE" },
   SNAKE_CASE { "snake_case" },
   LOWER_CASE { "lower" },
   UPPER_CASE { "upper" },
