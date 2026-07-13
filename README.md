@@ -4,7 +4,7 @@ A universal serialization and deserialization library for the [C3 programming la
 
 ## Goal
 
-Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats (e.g., JSON). It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
+Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats. It ships three formats out of the box — **JSON** (serialize + deserialize), **CSV** (serialize), and **XML** (serialize) — and lets you add your own by implementing two interfaces. It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
 
 The library is built around two core interfaces:
 - **Serializer**: Converts C3 structs into a target format
@@ -45,17 +45,42 @@ The library is built around two core interfaces:
 
 ### JSON
 
-The `dessert::json` module provides a complete JSON serializer and deserializer.
+The `dessert::format::json` module (reachable as `json::`) provides a complete JSON serializer and deserializer.
 
-- `json::serializer` to get a serializer that produces a JsonValue (with methods like `to_pretty_string()`). Accepts an optional allocator: `json::serializer(allocator)` (defaults to `tmem`).
-- `json::string_serializer` to get a serializer that produces directly a json string.
+**Serializers:**
+- `json::serializer` produces a `JsonValue` (with methods like `to_string()` / `to_pretty_string()`). Accepts an optional allocator: `json::serializer(allocator)` (defaults to `tmem`).
+- `json::string_serializer` produces a JSON string directly (also allocator-optional, defaults to `tmem`).
 
-- `json::tdeserializer` to get a deserializer that takes a json string and produces your struct (uses `tmem`).
-- `json::deserializer` to get a deserializer with a custom allocator: `json::deserializer(allocator, json_str)`.
+**Deserializers** take a `String` **or** an `InStream` as input:
+- `json::deserializer(allocator, input, flavor = JSONC)` — deserializer with a custom allocator.
+- `json::tdeserializer(input, flavor = JSONC)` — convenience deserializer that uses `tmem`.
+- Convenience one-shot macros: `json::deserialize{Type}(allocator, input, flavor)` and `json::tdeserialize{Type}(input, flavor)`.
+
+**JSON flavor:** the `JsonFlavor` enum selects the parsing dialect — `JSON` (strict) or `JSONC` (a relaxed, JSON5-style superset that allows comments and trailing commas). The default for every deserializer is `JSONC`.
+
+> The `debug_deserializer` / `tdebug_deserializer` factories are deprecated — pass `debug: true` to `json::deserializer` / `json::tdeserializer` instead.
 
 ### CSV
 
-The `dessert::csv` module provides a CSV serializer for converting slices of structs into CSV format. Only serialization is supported for now (no CSV deserializer).
+The `dessert::format::csv` module (reachable as `csv::`) provides a CSV serializer for converting slices of structs into CSV format. Only serialization is supported for now (no CSV deserializer).
+
+- `csv::serializer()` — takes no allocator. Its `.result()` returns a `CSVDocument`; call `.to_string()` on that document to get the CSV text.
+
+### XML
+
+The `dessert::format::xml` module (reachable as `xml::`) provides an XML serializer. Only serialization is supported for now (no XML deserializer yet).
+
+- `xml::serializer()` — takes no allocator. Its `.result()` returns the produced XML `String`.
+- `xml::pretty_string(xml, indent_size = 2)` — reformats an XML string with indentation.
+- Fields tagged with the `xml:attribute` format attribute are emitted as XML attributes on the enclosing element instead of as child elements. Attribute fields **must** be declared before any element fields of the same struct:
+
+```c3
+struct Point {
+    int x @DFieldSer({ .fmt = { "xml:attribute" } });
+    int y @DFieldSer({ .fmt = { "xml:attribute" } });
+}
+// { .x = 1, .y = 2 } → <point x="1" y="2"></point>
+```
 
 ### Attributes
 
@@ -88,6 +113,7 @@ struct Person {
 | `.rename`        | `String`   | Use a different name for this field in the output/input                           |
 | `.aliases`       | `String[]` | Alternative names to accept during deserialization (not yet implemented)          |
 | `.validator`     | `String`   | Call a validation method before serialization                                     |
+| `.fmt`           | `FieldAttrs` (`String[]`) | Format-specific per-field attributes, e.g. `{ "xml:attribute" }`. Each entry is read as a bare `key` or as `key=value` |
 | `.flatten`       | `bool`                   | Flatten a nested struct's fields directly into the parent object |
 | `.tagged`        | `DFieldUnionConfig`      | Tagged union configuration (see Union attributes below)          |
 
@@ -170,6 +196,7 @@ struct Function @DStruct({ .deny_unknown_fields = true }) {
 | Option                  | Type             | Description                                                                         |
 |-------------------------|------------------|-------------------------------------------------------------------------------------|
 | `.deny_unknown_fields`  | `bool`           | Return `UNKNOWN_FIELD` fault if an unrecognized field is encountered during deserialization (default: skip unknown fields silently) |
+| `.deny_dup_keys`        | `bool`           | Raise `DUPLICATED_KEY` if the same field appears more than once during deserialization |
 | `.rename_all`           | `CaseConvention` | Rename all fields using a naming convention                                         |
 
 **`CaseConvention` values:**
@@ -180,7 +207,7 @@ struct Function @DStruct({ .deny_unknown_fields = true }) {
 | `KEBAB_CASE`            | `kebab-case`         |
 | `CAMEL_CASE`            | `camelCase`          |
 | `PASCAL_CASE`           | `PascalCase`         |
-| `SCREAMING_SNAKE_CASE`  | `SCREAMING_SNAKE`    |
+| `CONSTANT_CASE`         | `CONSTANT_CASE`      |
 | `SNAKE_CASE`            | `snake_case`         |
 | `LOWER_CASE`            | `lower`              |
 | `UPPER_CASE`            | `UPPER`              |
@@ -373,6 +400,8 @@ $expand(derive(Animal::name, dessert::serialize));   // serialize only
 $expand(derive(Animal::name, dessert::deserialize)); // deserialize only
 ```
 
+> **Imports:** `import dessert;` brings in the derive machinery and all the format factories (`json::serializer`, `csv::serializer`, `xml::serializer`, …). Add `import json;` / `import csv;` only when you need to name the value types directly (`JsonValue`, `CSVValue`, `CSVDocument`); XML has no separate value type.
+
 ### 2. Serialize to JSON
 
 ```c3
@@ -458,39 +487,37 @@ Required methods must be implemented. Optional methods (`@optional`) fall back t
 
 ```c3
 interface Serializer {
-  fn void? serialize_bool(bool b);
+  fn void? struct_start(String name);
+  fn void? serialize_field_start(String name, FieldAttrs fmt, typeid field_type);
+  fn void? serialize_field_end(String name, FieldAttrs fmt, typeid field_type);
+  fn void? struct_end(String name);
 
-  fn void? serialize_char(char c) @optional;      // falls back to serialize_string({c}) 
+  fn void? serialize_slice_start(long len);
+  fn void? serialize_slice_item_start(usz idx) @optional;
+  fn void? serialize_slice_item_end(usz idx) @optional;
+  fn void? serialize_slice_end(long len);
+
+  fn void? serialize_null();
+  fn void? serialize_bool(bool b);
+  fn void? serialize_long(long l);
+  fn void? serialize_string(String s);
+  fn void? serialize_double(double d);
+
+  fn void? serialize_char(char c) @optional;      // falls back to serialize_string({c})
   fn void? serialize_ichar(ichar c) @optional;    // falls back to serialize_long
 
   fn void? serialize_short(short s) @optional;    // falls back to serialize_long
   fn void? serialize_int(int i) @optional;        // falls back to serialize_long
-  fn void? serialize_long(long l);
   fn void? serialize_int128(int128 i) @optional;  // returns UNSUPPORTED_DATA_TYPE if absent
 
-  fn void? serialize_ushort(ushort s) @optional;  // falls back to serialize_ulong
   fn void? serialize_uint(uint i) @optional;      // falls back to serialize_ulong
-  fn void? serialize_ulong(ulong l);
+  fn void? serialize_ushort(ushort s) @optional;  // falls back to serialize_ulong
+  fn void? serialize_ulong(ulong l) @optional;    // falls back to serialize_long
   fn void? serialize_uint128(uint128 i) @optional; // returns UNSUPPORTED_DATA_TYPE if absent
 
-  fn void? serialize_string(String s);
   fn void? serialize_zstring(ZString s) @optional; // falls back to serialize_string
 
   fn void? serialize_float(float f) @optional;     // falls back to serialize_double
-  fn void? serialize_double(double d);
-
-  fn void? serialize_null();
-
-  fn void? serialize_slice_start(ulong len);
-  fn void? serialize_slice_end(ulong len);
-
-  fn void? serialize_field_start(String name);
-  fn void? serialize_slice_item_start(usz idx) @optional;
-  fn void? serialize_slice_item_end(usz idx) @optional;
-  fn void? serialize_field_end(String name);
-
-  fn void? struct_start(String name);
-  fn void? struct_end(String name);
 }
 ```
 
@@ -500,44 +527,49 @@ Required methods must be implemented. Optional methods (`@optional`) fall back t
 
 ```c3
 interface Deserializer {
-  fn void? struct_start();
+  fn void? struct_start(String name);
   fn bool? has_next_field();
   fn String? next_field_name();
-  fn void? struct_end();
+  fn String? peek_field_name();       // inspect the next field name without consuming it
+  fn void? struct_end(String name);
 
   fn void? slice_start();
   fn bool? has_next_slice_item();
   fn void? slice_end();
 
-  fn bool? next_bool();
   fn bool? next_null();
+  fn bool? next_bool();
+  fn long? next_long();
+  fn String? next_string();
+  fn double? next_double();
 
-  fn Object*? next_any() @optional;  // deserialize any value as Object*
+  fn Object*? next_any() @optional;          // deserialize any value as Object*
+  fn void? skip_next_value() @optional;      // discard the next value (unknown fields)
+  fn String? next_enum_description() @optional; // falls back to next_string
 
   fn char? next_char() @optional;   // falls back to next_string()[0]
   fn ichar? next_ichar() @optional;    // falls back to next_long
 
   fn short? next_short() @optional;   // falls back to next_long
   fn int? next_int() @optional;        // falls back to next_long
-  fn long? next_long();
   fn int128? next_int128() @optional;  // returns UNSUPPORTED_DATA_TYPE if absent
 
   fn ushort? next_ushort() @optional;  // falls back to next_ulong
   fn uint? next_uint() @optional;      // falls back to next_ulong
-  fn ulong? next_ulong();
+  fn ulong? next_ulong() @optional;    // falls back to next_long
   fn uint128? next_uint128() @optional; // returns UNSUPPORTED_DATA_TYPE if absent
 
-  fn String? next_string();
   fn ZString? next_zstring() @optional; // falls back to next_string
 
   fn float? next_float() @optional;    // falls back to next_double
-  fn double? next_double();
+
+  fn Allocator get_allocator() @optional;
 }
 ```
 
 ### Adding Support for New Formats
 
-To add support for a new format (e.g., YAML, MessagePack), implement the `Serializer` and `Deserializer` interfaces (see the [json implementation](./src/json.c3) for a model):
+To add support for a new format (e.g., YAML, MessagePack), implement the `Serializer` and `Deserializer` interfaces (see the [json implementation](./src/formats/json.c3) for a model):
 
 ```c3
 struct MySerializer (Serializer) {
@@ -565,13 +597,17 @@ Dessert uses C3's fault system for error handling:
 |--------------------------|----------------|--------------------------------------------------|
 | `VALIDATOR_ERROR`        | `ser`          | Field validation failed during serialization     |
 | `UNSUPPORTED_DATA_TYPE`  | `ser` / `des`  | Type has no supported encoding (e.g. `int128`)   |
+| `UNSUPPORTED_ANY`        | `des`          | Format cannot deserialize an arbitrary value into `Object*` |
 | `DUPLICATED_KEY`         | `des`          | Duplicate key found during deserialization       |
 | `INVALID_ENUM_VALUE`     | `des`          | Enum name not found during deserialization       |
 | `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
 | `INLINED_UNION_BEFORE_TAG`  | `des`        | Inlined union appeared before its tag field in the input |
 | `UNMAPPED_UNION_VARIANT`    | `ser` / `des`| Tag value matched no union member                        |
-| `INVALID_CSV_TYPE`       | `dessert::csv` | Unsupported value type during CSV serialization  |
+| `INVALID_CSV_TYPE`       | `dessert::format::csv` | Unsupported value type during CSV serialization  |
+| `XML_ATTRIBUTE_AFTER_FIELD` | `dessert::format::xml` | An `xml:attribute` field appeared after a non-attribute field |
+| `XML_SLICE_IN_ATTRIBUTE`    | `dessert::format::xml` | A slice/array was used where an XML attribute value is expected |
 | `INVALID_JSON_TYPE`      | `json`         | Invalid JSON structure                           |
+| `UNEXPECTED_CHARACTER`   | `json`         | Unexpected character while parsing JSON          |
 | `INVALID_OBJECT`         | `json`         | Expected JSON object                             |
 | `INVALID_FIELD`          | `json`         | Invalid field format                             |
 | `INVALID_ARRAY`          | `json`         | Expected JSON array                              |
@@ -580,6 +616,7 @@ Dessert uses C3's fault system for error handling:
 | `INVALID_NUMBER`         | `json`         | Invalid number format                            |
 | `INVALID_BOOLEAN`        | `json`         | Invalid boolean value                            |
 | `INVALID_NULL`           | `json`         | Invalid null value                               |
+| `INVALID_COMMENT`        | `json`         | Malformed comment (JSONC flavor)                 |
 
 ## Best Practices
 
@@ -595,6 +632,8 @@ Dessert uses C3's fault system for error handling:
 
 - [x] Serialize to JSON
 - [x] Serialize to CSV (slices of structs)
+- [x] Serialize to XML (with `xml:attribute` fields)
+- [x] JSONC / JSON5-style relaxed parsing (`JsonFlavor`)
 - [x] Recursive struct serialization
 - [x] Serialize Maybe fields
 - [x] Serialize slice fields
@@ -615,6 +654,10 @@ Dessert uses C3's fault system for error handling:
 - [x] Serialize/deserialize tagged union fields (named, anonymous, inlined)
 - [x] Field flattening via `@DField({ .flatten = true })`
 - [x] Bulk field rename via `@DStruct({ .rename_all = CAMEL_CASE })`
+- [x] Format-specific field attributes via `@DField({ .fmt = { ... } })`
+- [x] Reject duplicate keys via `@DStruct({ .deny_dup_keys = true })`
+- [ ] Deserialize from CSV / XML
+- [ ] Field aliases (`.aliases`)
 - [ ] Default values for missing fields
 
 ## License

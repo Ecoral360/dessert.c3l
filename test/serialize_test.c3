@@ -19,90 +19,82 @@ struct SBox {
   SPoint center;
 }
 
+$expand(derive(SWithPointer::name, dessert::serialize));
 struct SWithPointer {
   String name;
   SPoint* extra;
 }
-fn void? SWithPointer.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
+$expand(derive(SWithArray::name, dessert::serialize));
 struct SWithArray {
   String tag;
   SPoint[] items;
 }
-fn void? SWithArray.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
+$expand(derive(SSkipField::name, dessert::serialize));
 struct SSkipField {
   String kept;
   String secret   @DField({ .skip = true });
   int    internal @DField({ .skip = true });
 }
-fn void? SSkipField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SRenamedField::name, dessert::serialize));
 struct SRenamedField {
   String original @DField({ .rename = "alias" });
   int    count    @DField({ .rename = "num" });
 }
-fn void? SRenamedField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SSkipIfEmpty::name, dessert::serialize));
 struct SSkipIfEmpty {
   String  always;
   String  maybe_str @DField({ .skip_if_empty = true });
   SPoint* maybe_ptr @DField({ .skip_if_empty = true });
   SPoint[] maybe_arr @DField({ .skip_if_empty = true });
 }
-fn void? SSkipIfEmpty.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SConditional::name, dessert::serialize));
 struct SConditional {
   String name;
   int    score;
 }
 fn bool SConditional.skip_serializing_score(&self) => self.score < 0;
-fn void? SConditional.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
 // Default: serialize enum variants by name
+$expand(derive(SDirection::name, dessert::serialize));
 enum SDirection {
   NORTH,
   SOUTH,
   EAST,
   WEST,
 }
-fn void? SDirection.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 // Serialize enum variants by ordinal (0, 1, 2, ...)
+$expand(derive(SRank::name, dessert::serialize));
 enum SRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
 }
-fn void? SRank.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 // Serialize enum via an associated field value
+$expand(derive(SColor::name, dessert::serialize));
 enum SColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },
 }
-fn void? SColor.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SWithMaybe::name, dessert::serialize));
 struct SWithMaybe {
   String    name;
   Maybe{int} opt;
 }
-fn void? SWithMaybe.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SWithValidator::name, dessert::serialize));
 struct SWithValidator {
   String name @DField({ .validator = "validate_name" });
 }
 fn bool SWithValidator.validate_name(&self, String name) => name.len > 0;
-fn void? SWithValidator.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
 
+$expand(derive(SWeatherRow::name, dessert::serialize));
 struct SWeatherRow {
   String city;
   double temp;
   bool   sunny;
 }
-fn void? SWeatherRow.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 // ── Tests: JSON primitives ────────────────────────────────────────────────────
 
 fn void test_ser_bool_true() @test {
@@ -463,6 +455,7 @@ fn void test_ser_csv_values() @test {
 
 // ── Tests: inline sub-struct ──────────────────────────────────────────────────
 
+$expand(derive(SWithInlineSub::name, dessert::serialize));
 struct SWithInlineSub {
   int id;
   struct pos { 
@@ -470,8 +463,7 @@ struct SWithInlineSub {
     int y; 
   }
 }
-fn void? SWithInlineSub.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
+$expand(derive(SWithFlatSub::name, dessert::serialize));
 struct SWithFlatSub {
   int id;
   struct pos @DField({ .flatten = true }) { 
@@ -479,8 +471,6 @@ struct SWithFlatSub {
     int y; 
   }
 }
-fn void? SWithFlatSub.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_inline_substruct_nested() @test {
   SWithInlineSub s = { .id = 7, .pos = { .x = 3, .y = -4 } };
   JsonSerializer js = json::serializer();
@@ -514,12 +504,11 @@ union SUVariant {
   double f;
 }
 
+$expand(derive(STaggedUnion::name, dessert::serialize));
 struct STaggedUnion {
   int       tag;
   SUVariant val @DField({ .tagged = { .by = "tag", .inlined = true } });
 }
-fn void? STaggedUnion.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_union_field() @test {
   STaggedUnion tu = { .tag = 0, .val = { .i = 42 } };
   JsonSerializer js = json::serializer();
@@ -543,6 +532,7 @@ fn void test_ser_union_negative_value() @test {
 
 // ── Tests: @DField tagged union (named) ──────────────────────────────────────
 
+$expand(derive(SDUnionNamed::name, dessert::serialize));
 struct SDUnionNamed {
   int kind;
   union p @DField({ .tagged = { .by = "kind" } }) {
@@ -551,8 +541,6 @@ struct SDUnionNamed {
     String third;
   }
 }
-fn void? SDUnionNamed.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_dunion_named_first() @test {
   // kind=0 → serialize p.first
   SDUnionNamed s = { .kind = 0, .p = { .first = 42 } };
@@ -610,6 +598,7 @@ fn void test_ser_dunion_named_only_active_member() @test {
 
 // ── Tests: @DField anonymous union (flattened) ────────────────────────────────
 
+$expand(derive(SDUnionAnon::name, dessert::serialize));
 struct SDUnionAnon {
   int kind;
   union @DField({ .tagged = { .by = "kind" } }) {
@@ -617,8 +606,6 @@ struct SDUnionAnon {
     double bar;
   }
 }
-fn void? SDUnionAnon.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_dunion_anon_first() @test {
   // kind=0 → foo appears as top-level field
   SDUnionAnon s = { .kind = 0, .foo = 99 };
@@ -650,13 +637,12 @@ fn void test_ser_dunion_anon_second() @test {
 
 // ── Tests: rename_all = CAMEL_CASE ───────────────────────────────────────────
 
+$expand(derive(SCamelCase::name, dessert::serialize));
 struct SCamelCase @DStructSer({ .rename_all = CAMEL_CASE }) {
   String first_name;
   String last_name;
   int    birth_year;
 }
-fn void? SCamelCase.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_camel_case() @test {
   SCamelCase s = { .first_name = "John", .last_name = "Doe", .birth_year = 1990 };
   JsonSerializer js = json::serializer();
@@ -681,6 +667,7 @@ fn void test_ser_camel_case() @test {
 $expand(derive(SMBOrdinalTag::name, dessert));
 enum SMBOrdinalTag { ORD_FIRST, ORD_SECOND, ORD_THIRD }
 
+$expand(derive(SMatchByOrdinal::name, dessert::serialize));
 struct SMatchByOrdinal {
   SMBOrdinalTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = ORDINAL } } }) {
@@ -689,8 +676,6 @@ struct SMatchByOrdinal {
     String third;    // selected when kind ordinal == 2 (ORD_THIRD)
   }
 }
-fn void? SMatchByOrdinal.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_match_by_ordinal_first() @test {
   // ORD_FIRST (ordinal 0) → member[0] = first; output: {"kind":"ORD_FIRST","payload":10}
   SMatchByOrdinal s = { .kind = ORD_FIRST, .payload = { .first = 10 } };
@@ -736,6 +721,7 @@ fn void test_ser_match_by_ordinal_third() @test {
 $expand(derive(SMBDescTag::name, dessert));
 enum SMBDescTag { DESC_A, DESC_B, DESC_C }
 
+$expand(derive(SMatchByDesc::name, dessert::serialize));
 struct SMatchByDesc {
   SMBDescTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = DESCRIPTION } } }) {
@@ -744,8 +730,6 @@ struct SMatchByDesc {
     String desc_c;   // → case DESC_C
   }
 }
-fn void? SMatchByDesc.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_match_by_desc_first() @test {
   // DESC_A → case DESC_A → member desc_a; output: {"kind":"DESC_A","payload":42}
   SMatchByDesc s = { .kind = DESC_A, .payload = { .desc_a = 42 } };
@@ -801,6 +785,7 @@ struct SubS {
   String s;
 }
 
+$expand(derive(SMatchByField::name, dessert::serialize));
 struct SMatchByField {
   SMBFieldTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "variant" } } }) {
@@ -812,8 +797,6 @@ struct SMatchByField {
     SubS fld_d;     // matched when kind.variant == "fld_d"
   }
 }
-fn void? SMatchByField.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_match_by_field_first() @test {
   // FLD_A.variant = "fld_a" → case "fld_a" → member fld_a; output: {"kind":"FLD_A","payload":7}
   SMatchByField s = { .kind = FLD_A, .payload = { .fld_a = 7 } };
@@ -867,6 +850,7 @@ fn void test_ser_match_by_field_forth_string() @test {
 // EMPTY_STRUCT → serialize payload as {}. NULL → null. ZERO → 0.
 
 // Default (no unmapped.as = ERROR): out-of-range kind raises UNMAPPED_UNION_VARIANT
+$expand(derive(SUnmappedError::name, dessert::serialize));
 struct SUnmappedError {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true } }) {
@@ -875,8 +859,6 @@ struct SUnmappedError {
     String third;
   }
 }
-fn void? SUnmappedError.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_unmapped_as_error() @test {
   SUnmappedError s = { .kind = 99 };   // ordinal 99 doesn't match member 0, 1, or 2
   JsonSerializer js = json::serializer();
@@ -889,6 +871,7 @@ fn void test_ser_unmapped_as_error() @test {
 }
 
 // unmapped.as = EMPTY_STRUCT: out-of-range kind → payload serialized as {}
+$expand(derive(SUnmappedEmptyStruct::name, dessert::serialize));
 struct SUnmappedEmptyStruct {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = EMPTY_STRUCT } } }) {
@@ -896,8 +879,6 @@ struct SUnmappedEmptyStruct {
     double second;
   }
 }
-fn void? SUnmappedEmptyStruct.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_unmapped_as_empty_struct() @test {
   SUnmappedEmptyStruct s = { .kind = 99 };
   JsonSerializer js = json::serializer();
@@ -909,6 +890,7 @@ fn void test_ser_unmapped_as_empty_struct() @test {
 }
 
 // unmapped.as = NULL: out-of-range kind → payload serialized as null
+$expand(derive(SUnmappedNull::name, dessert::serialize));
 struct SUnmappedNull {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = NULL } } }) {
@@ -916,8 +898,6 @@ struct SUnmappedNull {
     double second;
   }
 }
-fn void? SUnmappedNull.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_unmapped_as_null() @test {
   SUnmappedNull s = { .kind = 99 };
   JsonSerializer js = json::serializer();
@@ -929,6 +909,7 @@ fn void test_ser_unmapped_as_null() @test {
 }
 
 // unmapped.as = ZERO: out-of-range kind → payload serialized as 0
+$expand(derive(SUnmappedZero::name, dessert::serialize));
 struct SUnmappedZero {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = ZERO } } }) {
@@ -936,8 +917,6 @@ struct SUnmappedZero {
     double second;
   }
 }
-fn void? SUnmappedZero.serialize(&self, Serializer serializer) => ser::impl_serialize(self, serializer);
-
 fn void test_ser_unmapped_as_zero() @test {
   SUnmappedZero s = { .kind = 99 };
   JsonSerializer js = json::serializer();

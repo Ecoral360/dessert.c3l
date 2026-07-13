@@ -125,7 +125,6 @@ macro @method_fallback_chain(des, #method, ...) @local {
       $endif
     $endfor
   $endif
-
 }
 
 fn void? impl_deserialize(Value value, Des deserializer) <Value, Des> {

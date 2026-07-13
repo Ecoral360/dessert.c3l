@@ -54,8 +54,13 @@ macro serialize(serializer, value) {
   return serializer.result();
 }
 
+<* @require $defined(Serializer ser = serializer) *>
+fn void? impl_serialize(Value s, Ser serializer) <Value, Ser> {
+  return impl_serialize_inline(s, serializer);
+}
+
 <* @require $defined(s.serialize(serializer)) *>
-macro impl_serialize(s, Serializer serializer) {
+macro impl_serialize_inline(s, serializer) @local {
   $if $Typeof(s)::kind != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif
@@ -352,19 +357,34 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
 
     $case $defined(lengthof(value)) &&& $defined(value[0]):
       serializer.serialize_slice_start(lengthof(value))!;
-      $Typefrom($Typeof(Serializer.serialize_slice_item_start)) cb_start;
-      if (&((Serializer) serializer).serialize_slice_item_start) {
-        cb_start = &((Serializer) serializer).serialize_slice_item_start;
-      }
-      $Typefrom($Typeof(Serializer.serialize_slice_item_end)) cb_end;
-      if (&((Serializer) serializer).serialize_slice_item_end) {
-        cb_end = &((Serializer) serializer).serialize_slice_item_end;
-      }
-      foreach (i, el: value) {
-        if (cb_start) cb_start(serializer, (usz) i)!;
-        serialize_value(serializer, el, $config)!;
-        if (cb_end) cb_end(serializer, (usz) i)!;
-      }
+
+      $if $Typeof(serializer) == Serializer:
+        $Typefrom($Typeof(Serializer.serialize_slice_item_start)) cb_start;
+        if (&((Serializer) serializer).serialize_slice_item_start) {
+          cb_start = &((Serializer) serializer).serialize_slice_item_start;
+        }
+        $Typefrom($Typeof(Serializer.serialize_slice_item_end)) cb_end;
+        if (&((Serializer) serializer).serialize_slice_item_end) {
+          cb_end = &((Serializer) serializer).serialize_slice_item_end;
+        }
+
+        foreach (i, el: value) {
+          if (cb_start) cb_start(serializer, (usz) i)!;
+          serialize_value(serializer, el, $config)!;
+          if (cb_end) cb_end(serializer, (usz) i)!;
+        }
+      $else
+        foreach (i, el: value) {
+          $if $defined(serializer.serialize_slice_item_start):
+            serializer.serialize_slice_item_start((usz) i)!;
+          $endif
+          serialize_value(serializer, el, $config)!;
+          $if $defined(serializer.serialize_slice_item_end):
+            serializer.serialize_slice_item_end((usz) i)!;
+          $endif
+        }
+      $endif
+
       serializer.serialize_slice_end(lengthof(value))!;
 
     $default:
