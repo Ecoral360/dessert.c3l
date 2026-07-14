@@ -169,7 +169,9 @@ macro @is_deserializable($Output) @const {
 <*
   @require($defined(Deserializer d = deserializer))
 *>
-macro Output? deserialize(deserializer) <Output> => deserialize_value{Output, $Typeof(deserializer)}(deserializer, {});
+macro Output? deserialize(deserializer) <Output> => @pool() { 
+  return deserialize_value{Output, $Typeof(deserializer)}(deserializer, {}); 
+}
 
 
 <* thanks to @nonnorm for this helper macro ! *>
