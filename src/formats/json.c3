@@ -893,7 +893,8 @@ fn String? JsonDeserializer.tnext_string(&self) {
 }
 
 fn String? JsonDeserializer.next_string(&self) @dynamic {
-  return self.tnext_string().copy(self.allocator);
+  if (self.allocator != tmem) return self.tnext_string().copy(self.allocator);
+  return self.tnext_string();
 }
 
 <*
