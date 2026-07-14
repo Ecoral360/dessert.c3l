@@ -752,57 +752,66 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   self.skip_whitespace()!;
   char next = self.peek()!;
   bool jsonc = self.flavor == JSONC;
-  switch {
-    case next == '"':
-      String s = self.tnext_string()!;
-      return object::new_string(self.allocator, s);
+  switch (next) @jump {
+    case '"':
+      return object::new_string(self.allocator, self.tnext_string());
 
-    case next == '\'':
+    case '\'':
       if (!jsonc) return UNEXPECTED_CHARACTER~;
-      String s = self.tnext_string()!;
-      return object::new_string(self.allocator, s);
+      return object::new_string(self.allocator, self.tnext_string());
 
-    case next == 't':
-    case next == 'f':
-      return object::new_bool(self.next_bool())!;
+    case 't':
+    case 'f':
+      bool b = self.next_bool() @inline!;
+      return object::new_bool(b);
 
-    case next == 'n':
-      (void)self.next_null()!;
+    case 'n':
+      (void)self.next_null() @inline!;
       return object::new_null();
 
-    case next == '{':
+    case '{':
       Object* o = object::new_obj(self.allocator);
       defer catch o.free();
-      self.struct_start("")!;
-      while(self.has_next_field()!) {
-        String next_key = self.next_field_name()!;
-        o.set(next_key, self.next_any())!;
-      }
-      self.struct_end("")!;
-      return o;
-
-    case next == '[':
-      Object* o = object::new_obj(self.allocator);
-      defer catch o.free();
-      self.slice_start()!;
-      while(self.has_next_slice_item()!) {
-        o.push(self.next_any())!;
-      }
-      self.slice_end()!;
-      return o;
-
-    case ascii::is_digit(next):
-    case next == '-':
-    case next == '+':
-    case next == '.':
-    case next == 'I':
-    case next == 'N':
-      // '+', '.', 'I' (Infinity) and 'N' (NaN) only start a number in JSONC.
-      if (!jsonc && (next == '+' || next == '.' || next == 'I' || next == 'N')) {
+      if (self.next()! != '{') {
         return UNEXPECTED_CHARACTER~;
       }
-      double value = self.next_double()!;
-      return object::new_float(self.allocator, value);
+
+      while(self.has_next_field()!) {
+        o.set(self.next_field_name(), self.next_any())!;
+      }
+
+      self.skip_whitespace()!;
+      if (self.next()! != '}') {
+        return UNEXPECTED_CHARACTER~;
+      }
+      return o;
+
+    case '[':
+      Object* o = object::new_obj(self.allocator);
+      defer catch o.free();
+
+      if (self.next()! != '[') return UNEXPECTED_CHARACTER~;
+
+      while(self.has_next_slice_item()!) o.push(self.next_any())!;
+
+      self.skip_whitespace()!;
+      if (self.next()! != ']') {
+        return UNEXPECTED_CHARACTER~;
+      }
+      return o;
+
+    case '-':
+    case '+':
+    case '.':
+    case 'I':
+    case 'N':
+      // '+', '.', 'I' (Infinity) and 'N' (NaN) only start a number in JSONC.
+      if (!jsonc) return UNEXPECTED_CHARACTER~;
+
+      return object::new_float(self.allocator, self.next_double());
+
+    default:
+      if (ascii::is_digit(next)) return object::new_float(self.allocator, self.next_double());
   }
 
   return UNEXPECTED_CHARACTER~;
