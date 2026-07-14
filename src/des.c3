@@ -41,14 +41,14 @@ interface Deserializer {
 
   <*
     Consume and return the name of the next field, advancing the cursor to its value.
-    @returns "The field name, allocated with `tmem`"
+    @returns "The field name (allocated with `tmem` or handled by the deserializer)"
   *>
   fn String? next_field_name();
 
   <*
     Return the name of the next field **without** consuming it, so the caller can decide
     how to handle it before reading. Must be idempotent until `next_field_name` is called.
-    @returns "The field name, allocated with `tmem`"
+    @returns "The field name (allocated with `tmem` or handled by the deserializer)"
   *>
   fn String? peek_field_name();
 
