@@ -7,56 +7,140 @@ import std::io;
 import dessert::utils;
 
 
+<*
+  A `Deserializer` is a cursor over an input document (JSON text, CSV document, ...) that the generic
+  deserialization code pulls values out of, one at a time, to reconstruct a typed value.
+
+  It is a pull parser: the generated code decides *what* type it expects next and calls
+  the matching `next_*` method to read it. Structs are read as
+  `struct_start` -> (`has_next_field` -> `next_field_name` -> *value*)* -> `struct_end`, and
+  sequences as `slice_start` -> (`has_next_slice_item` -> *value*)* -> `slice_end`. A scalar
+  is read with a single `next_*` call. Every method returns an optional so a malformed
+  document can abort the operation.
+
+  Field ordering is not assumed: `peek_field_name` lets the code look up the target field
+  before consuming the name, which is what makes out-of-order keys and inlined tagged
+  unions (tag read before the union body) work. Unknown fields are discarded via
+  `skip_next_value`.
+
+  Methods marked `@optional` may be omitted: the value is then read through a wider
+  fallback method (documented per method). The required methods (the struct/slice
+  cursor, `next_null`, `next_bool`, `next_long`, `next_string`, `next_double`) form the
+  minimal surface every format must provide.
+*>
 interface Deserializer {
+  <*
+    Enter a struct (object), positioning the cursor before its first field. Balanced by
+    `struct_end`.
+    @param name : "The fully-qualified type name of the struct being deserialized"
+  *>
   fn void? struct_start(String name);
+
+  <* @returns "`true` if the current struct has another field to read, `false` once its fields are exhausted" *>
   fn bool? has_next_field();
 
-  <* @returns "A tmem allocated string" *>
+  <*
+    Consume and return the name of the next field, advancing the cursor to its value.
+    @returns "The field name, allocated with `tmem`"
+  *>
   fn String? next_field_name();
 
-  <* @returns "A tmem allocated string" *>
+  <*
+    Return the name of the next field **without** consuming it, so the caller can decide
+    how to handle it before reading. Must be idempotent until `next_field_name` is called.
+    @returns "The field name, allocated with `tmem`"
+  *>
   fn String? peek_field_name();
 
+  <*
+    Leave the current struct, balancing the matching `struct_start`.
+    @param name : "The fully-qualified type name of the struct being deserialized"
+  *>
   fn void? struct_end(String name);
 
+  <* Enter a sequence (slice/array/List), positioning the cursor before its first item. Balanced by `slice_end`. *>
   fn void? slice_start();
+
+  <* @returns "`true` if the current sequence has another item to read, `false` once exhausted" *>
   fn bool? has_next_slice_item();
+
+  <* Leave the current sequence, balancing the matching `slice_start`. *>
   fn void? slice_end();
 
   <*
-    Returns :
-    `true` if the next element is a null value and consume it. 
-    `false` if the next element is not a null value and ***must not*** consume it.
+    Test for a null value.
+    @returns "`true` if the next value is null - in which case it is **consumed** - or `false` if it is not null, in which case it **must not** be consumed and can still be read by another `next_*` method"
   *>
   fn bool? next_null();
 
+  <* Read a boolean value. *>
   fn bool? next_bool();
+
+  <*
+    Read a signed integer. This is the source every signed and (absent `next_ulong`)
+    unsigned integer type ultimately falls back to, so it must be implemented.
+  *>
   fn long? next_long();
+
+  <* Read a UTF-8 string. *>
   fn String? next_string();
+
+  <* Read a floating-point number. `float` falls back to this when `next_float` is absent. *>
   fn double? next_double();
 
+  <*
+    Read an arbitrary value of unknown shape into a dynamically-typed `Object*`. Used for
+    `Object*` fields and to skip unknown fields when `skip_next_value` is not provided.
+    Optional: raises `UNSUPPORTED_ANY` when the format cannot represent free-form values.
+    @returns "The parsed value, allocated with the deserializer's allocator (caller owns it)"
+  *>
   fn Object*? next_any() @optional;
 
+  <*
+    Consume and discard the next value, whatever its shape. Called for unknown fields when
+    the struct does not deny them. Optional: falls back to reading the value with `next_any`
+    and freeing it.
+  *>
   fn void? skip_next_value() @optional;
 
+  <*
+    Read the textual description of an enum value (used when an enum is encoded by name).
+    Optional: falls back to `next_string`. Formats override it only when enum names need
+    different lexing than plain strings.
+  *>
   fn String? next_enum_description() @optional;
 
+  <* Read a `char`. Optional: falls back to the first byte of `next_string`. *>
   fn char? next_char() @optional;
+  <* Read an `ichar`. Optional: falls back to `next_long`. *>
   fn ichar? next_ichar() @optional;
 
+  <* Read a `short`. Optional: falls back to `next_long`. *>
   fn short? next_short() @optional;
+  <* Read an `int`. Optional: falls back to `next_long`. *>
   fn int? next_int() @optional;
+  <* Read an `int128`. Optional: raises `UNSUPPORTED_DATA_TYPE` when absent (no fallback). *>
   fn int128? next_int128() @optional;
 
+  <* Read a `ushort`. Optional: falls back to `next_ulong`, then to `next_long`. *>
   fn ushort? next_ushort() @optional;
+  <* Read a `uint`. Optional: falls back to `next_ulong`, then to `next_long`. *>
   fn uint? next_uint() @optional;
+  <* Read a `ulong`. Optional: falls back to `next_long` when absent. *>
   fn ulong? next_ulong() @optional;
+  <* Read a `uint128`. Optional: raises `UNSUPPORTED_DATA_TYPE` when absent (no fallback). *>
   fn uint128? next_uint128() @optional;
 
+  <* Read a `ZString`. Optional: falls back to `next_string`. *>
   fn ZString? next_zstring() @optional;
 
+  <* Read a `float`. Optional: falls back to `next_double`. *>
   fn float? next_float() @optional;
 
+  <*
+    Return the allocator that owns values produced during deserialization (strings,
+    `Object*`, container storage). Optional: falls back to the `tmem` allocator
+  *>
   fn Allocator get_allocator() @optional;
 }
 

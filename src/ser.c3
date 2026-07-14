@@ -5,37 +5,130 @@ import std::io;
 import std::core::types;
 import std::collections::maybe;
 
+<*
+  A `Serializer` receives a stream of structured events describing a value and turns
+  them into a concrete output format (JSON, CSV, XML, ...).
+
+  The generic serialization code drives an implementation by calling the methods below
+  in a nesting-aware order. A struct is emitted as
+  `struct_start` -> (`serialize_field_start` -> *value* -> `serialize_field_end`)* -> `struct_end`;
+  a slice as `serialize_slice_start` -> (`serialize_slice_item_start` -> *value* ->
+  `serialize_slice_item_end`)* -> `serialize_slice_end`; and a scalar value as a single
+  `serialize_*` call. Every method returns an optional so a format error can abort the
+  whole operation.
+
+  Methods marked `@optional` may be left unimplemented: the value they handle is then
+  routed to a wider fallback method (documented per method). The required methods
+  (`struct_start`/`struct_end`, the field/slice boundaries, `serialize_null`,
+  `serialize_bool`, `serialize_long`, `serialize_string`, `serialize_double`) form the
+  minimal surface every format must provide.
+
+  Implementations are expected to expose a `result()` method returning the finished
+  output; it is called by the `serialize` macro once the event stream ends (not part of this
+  interface because its return type is format-specific).
+*>
 interface Serializer {
+  <*
+    Begin a struct (object). Emitted once before any of the struct's fields, and
+    balanced by a matching `struct_end`. Structs may nest.
+    @param name : "The fully-qualified type name of the struct being serialized"
+  *>
   fn void? struct_start(String name);
+
+  <*
+    Begin a single struct field, before its value is serialized. Balanced by a
+    matching `serialize_field_end` with the same arguments. **Skipped and flattened
+    fields do not produce these calls.**
+    @param name : "The field's output name (already resolved through `rename` / `rename_all`)"
+    @param fmt : "Format-specific per-field attributes declared via `@DField({ .fmt = ... })` (e.g. `xml:attribute`)"
+    @param field_type : "The `typeid` of the field's declared type"
+  *>
   fn void? serialize_field_start(String name, FieldAttrs fmt, typeid field_type);
+
+  <*
+    End a struct field, after its value has been serialized. Mirrors the preceding
+    `serialize_field_start` and receives the same arguments.
+    @param name : "The field's output name (already resolved through `rename` / `rename_all`)"
+    @param fmt : "Format-specific per-field attributes declared via `@DField({ .fmt = ... })`"
+    @param field_type : "The `typeid` of the field's declared type"
+  *>
   fn void? serialize_field_end(String name, FieldAttrs fmt, typeid field_type);
+
+  <*
+    End a struct, balancing the matching `struct_start`.
+    @param name : "The fully-qualified type name of the struct being serialized"
+  *>
   fn void? struct_end(String name);
 
+  <*
+    Begin a sequence (slice, array or `List`). Balanced by `serialize_slice_end`.
+    @param len : "The number of items that will follow"
+  *>
   fn void? serialize_slice_start(long len);
+
+  <*
+    Begin one item of the current sequence, before its value is serialized. Optional:
+    formats that need no per-item framing may omit it.
+    @param idx : "The 0-based index of the item within the sequence"
+  *>
   fn void? serialize_slice_item_start(usz idx) @optional;
+
+  <*
+    End one item of the current sequence, after its value is serialized. Optional.
+    @param idx : "The 0-based index of the item within the sequence"
+  *>
   fn void? serialize_slice_item_end(usz idx) @optional;
+
+  <*
+    End a sequence, balancing the matching `serialize_slice_start`.
+    @param len : "The number of items that were emitted"
+  *>
   fn void? serialize_slice_end(long len);
 
+  <* Serialize a null value. Emitted for empty `Maybe` values and null pointers. *>
   fn void? serialize_null();
+
+  <* Serialize a boolean. *>
   fn void? serialize_bool(bool b);
+
+  <*
+    Serialize a signed integer. This is the sink every signed and (absent
+    `serialize_ulong`) unsigned integer type ultimately falls back to, so it must be
+    implemented.
+  *>
   fn void? serialize_long(long l);
+
+  <* Serialize a UTF-8 string. *>
   fn void? serialize_string(String s);
+
+  <* Serialize a floating-point number. `float` falls back to this when `serialize_float` is absent. *>
   fn void? serialize_double(double d);
 
+  <* Serialize a `char`. Optional: falls back to `serialize_string` with a one-character string. *>
   fn void? serialize_char(char c) @optional;
+  <* Serialize an `ichar`. Optional: falls back to `serialize_long`. *>
   fn void? serialize_ichar(ichar c) @optional;
 
+  <* Serialize a `short`. Optional: falls back to `serialize_long`. *>
   fn void? serialize_short(short s) @optional;
+  <* Serialize an `int`. Optional: falls back to `serialize_long`. *>
   fn void? serialize_int(int i) @optional;
+  <* Serialize an `int128`. Optional: raises `UNSUPPORTED_DATA_TYPE` when absent (no lossless fallback). *>
   fn void? serialize_int128(int128 i) @optional;
 
+  <* Serialize a `uint`. Optional: falls back to `serialize_ulong`, then to `serialize_long`. *>
   fn void? serialize_uint(uint i) @optional;
+  <* Serialize a `ushort`. Optional: falls back to `serialize_ulong`, then to `serialize_long`. *>
   fn void? serialize_ushort(ushort s) @optional;
+  <* Serialize a `ulong`. Optional: falls back to `serialize_long` when absent. *>
   fn void? serialize_ulong(ulong l) @optional;
+  <* Serialize a `uint128`. Optional: raises `UNSUPPORTED_DATA_TYPE` when absent (no lossless fallback). *>
   fn void? serialize_uint128(uint128 i) @optional;
 
+  <* Serialize a `ZString`. Optional: falls back to `serialize_string` on its view. *>
   fn void? serialize_zstring(ZString s) @optional;
 
+  <* Serialize a `float`. Optional: falls back to `serialize_double`. *>
   fn void? serialize_float(float f) @optional;
   // fn void? serialize_float16(float16 f) @optional @if($defined(float16));
   // fn void? serialize_float128(float128 f) @optional @if($defined(float128));
