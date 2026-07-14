@@ -754,14 +754,12 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   bool jsonc = self.flavor == JSONC;
   switch {
     case next == '"':
-      String s = self.next_string()!;
-      defer alloc::free(self.allocator, s);
+      String s = self.tnext_string()!;
       return object::new_string(self.allocator, s);
 
     case next == '\'':
       if (!jsonc) return UNEXPECTED_CHARACTER~;
-      String s = self.next_string()!;
-      defer alloc::free(self.allocator, s);
+      String s = self.tnext_string()!;
       return object::new_string(self.allocator, s);
 
     case next == 't':
