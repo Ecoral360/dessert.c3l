@@ -91,6 +91,9 @@ struct DFieldConfig {
     *Only available for union fields*
   *>
   DFieldUnionConfig tagged;
+
+  <* This string will be expanded as the default value during deserialization *>
+  String default_value;
 }
 
 struct DFieldCompleteConfig {

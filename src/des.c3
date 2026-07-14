@@ -307,6 +307,13 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
       var $struct_config = $type.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : (DStructConfig) {};
       uint[$Typeof(value)::inner.members.len] names;
 
+      $foreach $member : $Typeof(value)::inner.members:
+        DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
+        $if $config.default_value != "":
+          $expand(@sprintf("value.$member = %s;", $config.default_value));
+        $endif
+      $endforeach
+
       while(deserializer.has_next_field()!) {
         String? next_key = deserializer.peek_field_name();
 
