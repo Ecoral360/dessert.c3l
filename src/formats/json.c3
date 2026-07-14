@@ -577,10 +577,10 @@ fn String? JsonDeserializer.next_field_name(&self) @dynamic {
     char next = self.peek()!;
     // JSONC keys may be quoted (single or double) or bare identifiers.
     field_name = (next == '"' || next == '\'')
-      ? self.next_string()!
+      ? self.tnext_string()!
       : self.next_identifier()!;
   } else {
-    field_name = self.next_string()!;
+    field_name = self.tnext_string()!;
   }
 
   self.skip_whitespace()!;
@@ -614,7 +614,7 @@ fn String? JsonDeserializer.next_identifier(&self) {
   }
 
   if (val.len() == 0) return INVALID_FIELD~;
-  return val.copy_str(self.allocator);
+  return val.str_view();
 }
 
 fn String? JsonDeserializer.peek_field_name(&self) @dynamic {
@@ -717,7 +717,6 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
       self.struct_start("")!;
       while(self.has_next_field()!) {
         String next_key = self.next_field_name()!;
-        defer alloc::free(self.allocator, next_key);
         self.skip_next_value()!;
       }
       self.struct_end("")!;
@@ -779,7 +778,6 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       self.struct_start("")!;
       while(self.has_next_field()!) {
         String next_key = self.next_field_name()!;
-        defer alloc::free(self.allocator, next_key);
         o.set(next_key, self.next_any())!;
       }
       self.struct_end("")!;
@@ -812,7 +810,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
   return UNEXPECTED_CHARACTER~;
 }
 
-fn String? JsonDeserializer.next_string(&self) @dynamic {
+fn String? JsonDeserializer.tnext_string(&self) {
   self.skip_whitespace()!;
   bool jsonc = self.flavor == JSONC;
   char quote = self.next()!;
@@ -893,7 +891,11 @@ fn String? JsonDeserializer.next_string(&self) @dynamic {
     }
   }
 
-  return val.copy_str(self.allocator);
+  return val.str_view();
+}
+
+fn String? JsonDeserializer.next_string(&self) @dynamic {
+  return self.tnext_string().copy(self.allocator);
 }
 
 <*

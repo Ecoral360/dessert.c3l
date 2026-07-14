@@ -4,7 +4,7 @@ import std::io;
 import dessert;
 
 
-fn void test_comments()
+fn void test_comments() => @pool()
 {
 	Object* x = json::deserialize{Object*}(tmem, `{ "a":
 		// hello
@@ -14,7 +14,7 @@ fn void test_comments()
 }
 
 
-fn void tparse_respects_flavor()
+fn void tparse_respects_flavor() => @pool()
 {
 	// JSON-strict should reject the trailing comma.
 	test::@error(json::tdeserialize{Object*}(`[1,]`, JSON), json::UNEXPECTED_CHARACTER);
@@ -22,7 +22,7 @@ fn void tparse_respects_flavor()
   json::tdeserialize{Object*}(`[1,]`)!!;
 }
 //
-fn void parse_unicode_surrogate_pair()
+fn void parse_unicode_surrogate_pair() => @pool()
 {
 	// U+1F600 GRINNING FACE = "\uD83D\uDE00"
 	Object* o = json::tdeserialize{Object*}(`"\uD83D\uDE00"`)!!;
@@ -30,14 +30,14 @@ fn void parse_unicode_surrogate_pair()
 	test::@check(o.s == "\xF0\x9F\x98\x80");   // valid 4-byte UTF-8
 }
 
-fn void parse_lone_surrogate_rejected()
+fn void parse_lone_surrogate_rejected() => @pool()
 {
 	test::@error(json::tdeserialize{Object*}(`"\uD83D"`), json::INVALID_ESCAPE);   // lone high
 	test::@error(json::tdeserialize{Object*}(`"\uDE00"`), json::INVALID_ESCAPE);   // lone low
 	test::@error(json::tdeserialize{Object*}(`"\uD83Dx"`), json::INVALID_ESCAPE);  // high not followed by \u
 }
 
-fn void parse_number_requires_fractional_digit()
+fn void parse_number_requires_fractional_digit() => @pool()
 {
 	test::@error(json::tdeserialize{Object*}(`1.`),  json::INVALID_NUMBER);
 	test::@error(json::tdeserialize{Object*}(`1.e5`), json::INVALID_NUMBER);
@@ -45,7 +45,7 @@ fn void parse_number_requires_fractional_digit()
 	json::tdeserialize{Object*}(`1.5e2`)!!;
 }
 
-fn void test_comments_unsupported()
+fn void test_comments_unsupported() => @pool()
 {
 	Object*? x = json::deserialize{Object*}(tmem, `{ "a":
 		// hello
@@ -54,7 +54,7 @@ fn void test_comments_unsupported()
 	if (try x) assert(false);
 }
 
-fn void simple_test()
+fn void simple_test() => @pool()
 {
 	ByteReader reader;
 	reader.init(`{ "b": 123, "c": [ { "d": 66 }, null, "hello\tworld", false, { "id": "xyz" } ] }`);

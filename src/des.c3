@@ -10,8 +10,13 @@ import dessert::utils;
 interface Deserializer {
   fn void? struct_start(String name);
   fn bool? has_next_field();
+
+  <* @returns "A tmem allocated string" *>
   fn String? next_field_name();
+
+  <* @returns "A tmem allocated string" *>
   fn String? peek_field_name();
+
   fn void? struct_end(String name);
 
   fn void? slice_start();
@@ -82,19 +87,25 @@ macro @is_deserializable($Output) @const {
 *>
 macro Output? deserialize(deserializer) <Output> => deserialize_value{Output, $Typeof(deserializer)}(deserializer, {});
 
+
 <* thanks to @nonnorm for this helper macro ! *>
-macro @method_fallback(des, #method, #fallback) @local {
+macro @method_fallback(des, #method, #fallback = ...) @local {
   var $method = $stringify(#method);
   $switch:
     $case $Typeof(des) == Deserializer:
       if (&des.$method) {
         return des.$method();
       }
-      return #fallback;
+      $if $defined(#fallback):
+        return #fallback;
+      $endif
+
     $case $defined(des.$method):
       return des.$method();
-    $default:
+
+    $case $defined(#fallback):
       return #fallback;
+    $default:
   $endswitch
 }
 
@@ -138,8 +149,6 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
   $if $Typeof(value)::kind != POINTER:
     $error "The first parameter must be a &self pointer.";
   $endif
-
-  Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
 
   $switch:
     $case $Typeof(value)::inner.kind == ENUM:
@@ -206,29 +215,29 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
 
     $case $Typeof(value)::inner.kind == UNION:
     $case $Typeof(value)::inner.kind == STRUCT:
+      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+
       var $type = $Typeof(value)::inner;
       var $struct_config = $type.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : (DStructConfig) {};
-      List{String} names;
-      names.tinit();
-      defer names.free();
+      uint[$Typeof(value)::inner.members.len] names;
 
       while(deserializer.has_next_field()!) {
         String? next_key = deserializer.peek_field_name();
-        defer (void) alloc::free(allocator, next_key);
+
         if (catch next_key) {
-          io::eprintfn("Error deserializing after deserializing: %s", names);
+          // io::eprintfn("Error deserializing after deserializing: %s", names);
           next_key!;
           return;
         }
         $if $struct_config.deny_dup_keys:
-          if (names.contains(next_key)) {
+          if (array::contains(names, next_key.hash())) {
             return DUPLICATED_KEY~;
           }
         $endif
 
-        $foreach $member : $Typeof(value)::inner.members:
-          if (@des_field(deserializer, value, $member, next_key, names, $struct_config, allocator)!) {
-            names.push($member.name);
+        $foreach $i, $member : $Typeof(value)::inner.members:
+          if (@des_field(deserializer, value, $member, next_key, &names, $struct_config, allocator)!) {
+            names[$i] = @str_hash($member.name);
             continue;
           }
         $endforeach
@@ -250,7 +259,7 @@ macro void? @skip_next_value_fallback(deserializer) @local {
   if (o) o.free(); // we must free the Object* allocated
 }
 
-macro bool? @des_field(deserializer, value, $member, next_key, List{String} names, DStructConfig $struct_config, allocator) @local {
+macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DStructConfig $struct_config, allocator) @local {
   DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
   var $name = utils::@rename($config, $member.name, $struct_config);
 
@@ -272,7 +281,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
               $error @sprintf("Inlined unions MUST have a 'tagged_by' value for deserialization (%s)", $member.name);
             $endif
 
-            if (!names.contains($config.tagged.by)) {
+            if (!array::contains(names, @str_hash($config.tagged.by))) {
               io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', encountered inlined union field '%s' before tag key '%s'.", next_key, $config.tagged.by);
               return INLINED_UNION_BEFORE_TAG~;
             }
@@ -432,7 +441,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
           $default:
             Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
 
-            value = alloc::new(allocator, Output::inner);
+            value = alloc::alloc(allocator, Output::inner);
             *value = deserialize_value{Output::inner, Des}(deserializer, config)!;
             return value;
         $endswitch
@@ -463,6 +472,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       $endif
 
       value.init(allocator);
+      defer catch value.free();
 
       if (!config.flatten) deserializer.struct_start(Output::name)!;
       while(deserializer.has_next_field()!) {
@@ -476,6 +486,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
 
       value.init(allocator);
+      defer catch value.free();
 
       deserializer.slice_start()!;
       while(deserializer.has_next_slice_item()!) {
