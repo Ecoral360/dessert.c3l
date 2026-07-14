@@ -342,7 +342,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
           $case $member.type.is_generic(List) &&& $config.flatten:
             (void) deserializer.next_field_name()!;
 
-            $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0], $Typeof(deserializer)}(deserializer, $config);
+            $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
             if (catch e = next_value) {
               io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
               next_value!;
@@ -355,7 +355,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, List{String} name
           $case $member.type.kind == POINTER &&& $member.type.inner.is_generic(List) &&& $config.flatten:
             (void) deserializer.next_field_name()!;
 
-            $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0], $Typeof(deserializer)}(deserializer, $config);
+            $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
             if (catch e = next_value) {
               io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
               next_value!;
