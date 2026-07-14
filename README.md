@@ -118,6 +118,17 @@ struct Person {
 | `.fmt`           | `FieldAttrs` (`String[]`) | Format-specific per-field attributes, e.g. `{ "xml:attribute" }`. Each entry is read as a bare `key` or as `key=value` |
 | `.flatten`       | `bool`                   | Flatten a nested struct's fields directly into the parent object |
 | `.tagged`        | `DFieldUnionConfig`      | Tagged union configuration (see Union attributes below)          |
+| `.default_value` | `String`                 | Expression used as the field's value during deserialization when the field is missing from the input |
+
+`.default_value` is a C3 expression (as a string) that is spliced in when a field is absent from the input, instead of leaving it zero-initialized:
+
+```c3
+struct Settings {
+    String host @DField({ .default_value = `"localhost"` });
+    int    port @DField({ .default_value = "8080" });
+}
+// deserializing "{}" yields { .host = "localhost", .port = 8080 }
+```
 
 **Conditional skip methods:**
 
@@ -132,6 +143,23 @@ struct Person {
 fn bool Person.skip_serializing_age(&self) {
     return self.age == 0; // don't serialize age when it's 0
 }
+```
+
+**Inspecting field configuration (for format authors and macros):**
+
+The config attached to a field is reachable at compile time so custom formats and generic
+code can react to it:
+
+- `dessert::@get_fieldconfig($member)` — returns a `DFieldCompleteConfig { DFieldConfig ser; DFieldConfig des; }` for a reflected struct member, merging its `@DField` / `@DFieldSer` / `@DFieldDes` tags.
+- `FieldAttrs.@get(needle)` (compile-time) / `FieldAttrs.get(needle)` (runtime) — read a single `.fmt` entry, returning `"true"` for a bare `key` or the right-hand side of a `key=value` entry. This is how the XML serializer detects `xml:attribute`.
+
+```c3
+$foreach $member : MyType.members:
+    DFieldCompleteConfig $cfg = dessert::@get_fieldconfig($member);
+    $if $cfg.des.fmt.@get("allocator") == "true":
+        // this field opts into the "allocator" fmt attribute
+    $endif
+$endforeach
 ```
 
 **Enum attributes:**
@@ -658,9 +686,9 @@ Dessert uses C3's fault system for error handling:
 - [x] Bulk field rename via `@DStruct({ .rename_all = CAMEL_CASE })`
 - [x] Format-specific field attributes via `@DField({ .fmt = { ... } })`
 - [x] Reject duplicate keys via `@DStruct({ .deny_dup_keys = true })`
+- [x] Default values for missing fields via `@DField({ .default_value = "..." })`
 - [ ] Deserialize from CSV / XML
 - [ ] Field aliases (`.aliases`)
-- [ ] Default values for missing fields
 - [ ] Support field validation when deserializing
 
 ## License
