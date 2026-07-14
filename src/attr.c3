@@ -28,6 +28,19 @@ fn String? FieldAttrs.get(&self, String needle) {
   return NOT_FOUND~;
 }
 
+macro String FieldAttrs.@get($self, String $needle) @const {
+  $foreach $s : $self:
+    $switch: 
+      $case $s == $needle: 
+        return "true";
+      $case $s[..$needle.len - 1] == $needle:
+        return  $s[$needle.len + 1..];
+    $endswitch
+  $endforeach
+
+  return "";
+}
+
 struct DFieldUnionMatch {
   <*
     Specify the way the union variant is chosen from the tag value
@@ -78,6 +91,25 @@ struct DFieldConfig {
     *Only available for union fields*
   *>
   DFieldUnionConfig tagged;
+}
+
+struct DFieldCompleteConfig {
+  DFieldConfig ser;
+  DFieldConfig des;
+}
+
+macro DFieldCompleteConfig @get_fieldconfig($member) @const {
+  DFieldCompleteConfig $config;
+
+  $if $member.has_tag("dessert:ser:field"):
+    $config = { ...$config, .ser = $member.get_tag("dessert:ser:field") };
+  $endif
+
+  $if $member.has_tag("dessert:des:field"):
+    $config = { ...$config, .des = $member.get_tag("dessert:des:field") };
+  $endif
+
+  return $config;
 }
 
 attrdef @DField(DFieldConfig config) = @tag("dessert:ser:field", config), @tag("dessert:des:field", config);
