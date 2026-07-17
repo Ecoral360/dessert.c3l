@@ -285,6 +285,13 @@ struct JsonStringSerializer (Serializer) {
   DString output;
 }
 
+macro String? string_serialize(Allocator allocator, value) {
+  return ser::serialize(&&json::string_serializer(allocator), value);
+}
+macro String? tstring_serialize(value) {
+  return ser::serialize(&&json::string_serializer(tmem), value);
+}
+
 fn JsonStringSerializer string_serializer(Allocator allocator = tmem) {
   DString output;
   output.init(allocator);
@@ -312,7 +319,7 @@ fn void? JsonStringSerializer.serialize_string(&self, String s) @dynamic {
   long start = 0;
   foreach (i, c : s) {
     if (c != '"' && c != '\\' && c >= 0x20) continue;
-    if (i > start) self.output.append(s[start:i-start]);
+    if (i > start) self.output.append_bytes(s[start:i-start]);
     switch (c) {
       case '"': self.output.append(`\"`);
       case '\\': self.output.append(`\\`);
@@ -323,7 +330,7 @@ fn void? JsonStringSerializer.serialize_string(&self, String s) @dynamic {
     }
     start = i + 1;
   }
-  if (start < s.len) self.output.append(s[start:s.len - start]);
+  if (start < s.len) self.output.append_bytes(s[start:s.len - start]);
   self.output.append('\"');
 }
 
