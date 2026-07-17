@@ -1,5 +1,5 @@
 module dessert::ser;
-import dessert::utils;
+import dessert::utils @public;
 
 import std::io;
 import std::core::types;
@@ -247,7 +247,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
   $endif
 }
 
-macro @impl_serialize_struct($Type, s, Serializer serializer, DStructConfig $struct_config_parent) @local {
+macro @impl_serialize_struct($Type, s, serializer, DStructConfig $struct_config_parent) @local {
   DStructConfig $struct_config = $Type::has_tag("dessert:ser:struct") ??? $Type::get_tag("dessert:ser:struct") : $struct_config_parent;
   $foreach $member : $Type::members:
     DFieldConfig $config = $member.has_tag("dessert:ser:field") ??? $member.get_tag("dessert:ser:field") : (DFieldConfig) {};
@@ -278,7 +278,7 @@ macro @impl_serialize_struct($Type, s, Serializer serializer, DStructConfig $str
   $endforeach
 }
 
-macro @impl_serialize_value($Type, s, Serializer serializer) @local {
+macro @impl_serialize_value($Type, s, serializer) @local {
   $switch :
     $case $Type::kind == STRUCT &&& !$defined(s.serialize(serializer)):
       serializer.struct_start($Type::name)!;
@@ -290,7 +290,7 @@ macro @impl_serialize_value($Type, s, Serializer serializer) @local {
   $endswitch
 }
 
-macro @impl_serialize_union($UType, s, Serializer serializer, $member, DFieldConfig $config, DStructConfig $struct_config) @local {
+macro @impl_serialize_union($UType, s, serializer, $member, DFieldConfig $config, DStructConfig $struct_config) @local {
   $if $config.tagged.by.len == 0:
     $error @sprintf("Unions must be tagged by another field's value (member %s with type %s)", $member.name, $UType::name);
   $endif
@@ -448,7 +448,7 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
         serialize_value(serializer, inner, $config)!;
       }
 
-    $case $defined(lengthof(value)) &&& $defined(value[0]):
+    $case $defined(lengthof(value)) &&& $defined(value[0]) &&& $Typeof(value) != String:
       serializer.serialize_slice_start(lengthof(value))!;
 
       $if $Typeof(serializer) == Serializer:
@@ -481,7 +481,7 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
       serializer.serialize_slice_end(lengthof(value))!;
 
     $default:
-      $error @sprintf("Value not serializable: '%s (%s)'", $Typeof(value)::name, $Typeof(value)::kind);
+      @serialize_primitive_value(serializer, value)!;
   $endswitch
 }
 
@@ -510,6 +510,85 @@ macro impl_serialize_enum(s, serializer) @local {
 
 macro @is_serializable(#value) {
   return $defined(#value.serialize) ||| ($defined(#value.len) &&& $defined(#value[0]) &&& @is_serializable(#value[0])) ||| 
-    utils::@is_maybe_expr(#value);
+    utils::@is_maybe_expr(#value) ||| @is_primitive_value($Typeof(#value));
 }
 
+macro @is_primitive_value($Type) @local {
+  $switch $Type:
+    $case String:
+    $case ZString:
+    $case char:
+    $case bool:
+    $case ichar:
+    $case short:
+    $case int:
+    $case long:
+    $case int128:
+    $case ushort:
+    $case uint:
+    $case ulong:
+    $case uint128:
+    $case float16:
+    $case float:
+    $case double:
+      return true;
+
+    $default:
+      return false;
+  $endswitch
+}
+
+macro @serialize_primitive_value(ser, value) @local {
+  $switch $Typeof(value):
+    $case String:
+      return ser.serialize_string(value);
+
+    $case ZString:
+      return utils::@method_fallback{Serializer}(ser, serialize_zstring, ser.serialize_string(value.str_view()), #args: value);
+
+    $case char:
+      return utils::@method_fallback{Serializer}(ser, serialize_char, ser.serialize_string({ value }), #args: value);
+
+    $case bool:
+      return ser.serialize_bool(value);
+
+    $case ichar:
+      return utils::@method_fallback{Serializer}(ser, serialize_ichar, ser.serialize_long(value), #args: value)!;
+
+    $case short:
+      return utils::@method_fallback{Serializer}(ser, serialize_short, ser.serialize_long(value), #args: value)!;
+
+    $case int:
+      return utils::@method_fallback{Serializer}(ser, serialize_int, ser.serialize_long(value), #args: value)!;
+
+    $case long:
+      return ser.serialize_long(value)!;
+
+    $case int128:
+      return utils::@method_fallback{Serializer}(ser, serialize_int128, UNSUPPORTED_DATATYPE~, #args: value)!;
+
+    $case ushort:
+      return utils::@method_fallback_chain{Serializer}(ser, serialize_ushort, serialize_ulong, serialize_long, #args: value)!;
+
+    $case uint:
+      return utils::@method_fallback_chain{Serializer}(ser, serialize_uint, serialize_ulong, serialize_long, #args: value)!;
+
+    $case ulong:
+      return utils::@method_fallback{Serializer}(ser, serialize_ulong, ser.serialize_long(value), #args: value)!;
+
+    $case uint128:
+      return utils::@method_fallback{Serializer}(ser, serialize_uint128, UNSUPPORTED_DATATYPE~)!;
+
+    $case float16:
+      return utils::@method_fallback{Serializer}(ser, serialize_float16, ser.serialize_double(value), #args: value)!;
+
+    $case float:
+      return utils::@method_fallback{Serializer}(ser, serialize_float, ser.serialize_double(value), #args: value)!;
+
+    $case double:
+      return ser.serialize_double(value)!;
+
+    $default:
+      $error @sprintf("Value not serializable: '%s (%s)'", $Typeof(value)::name, $Typeof(value)::kind);
+  $endswitch
+}

@@ -121,12 +121,31 @@ struct FooWithHashMap {
   String bar;
   HashMap{String, int} found;
   HashMap{String, SWeatherRow} cities @DField({ .flatten = true });
+
+  Allocator my_allocator @DField({ .skip = true, .fmt = { "allocator" }, .default_value = "mem" });
+}
+
+macro Type? deserialize(Allocator allocator, input) <Type> {
+  Type value = des::deserialize{Type}(&&json::deserializer(allocator, input))!;
+
+  $foreach $member : Type::members:
+    DFieldCompleteConfig $config = dessert::@get_fieldconfig($member);
+    $if $config.des.fmt.@get("allocator") == "true":
+      value.$member = allocator;
+    $endif
+
+  $endforeach
+
+  return value;
 }
 
 fn void main() {
   String input = `{"found":{"baz":-2,"bar":1},"bar":"hello","toulouse":{"city":"Toulouse","temp":18.000000,"sunny":false}}`;
 
-  FooWithHashMap f = des::deserialize{FooWithHashMap}(&&json::tdeserializer(input))!!;
+  // FooWithHashMap f = des::deserialize{FooWithHashMap}(&&json::tdeserializer(input))!!;
+  FooWithHashMap f = deserialize{FooWithHashMap}(mem, input)!!;
+
+  assert(f.my_allocator == mem);
 
   io::printn(ser::serialize(&&json::string_serializer(), f)!!);
 

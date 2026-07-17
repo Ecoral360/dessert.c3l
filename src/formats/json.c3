@@ -300,50 +300,68 @@ fn void? JsonStringSerializer.serialize_bool(&self, bool b) @dynamic {
 }
 
 fn void? JsonStringSerializer.serialize_long(&self, long i) @dynamic {
-  self.output.append(string::tformat("%d", i));
+  self.output.appendf("%d", i);
 }
 
 fn void? JsonStringSerializer.serialize_double(&self, double f) @dynamic {
-  self.output.append(string::tformat("%f", f));
+  self.output.appendf("%f", f);
 }
 
 fn void? JsonStringSerializer.serialize_string(&self, String s) @dynamic {
-  self.output.append("\"");
-  self.output.append(s.treplace("\"", "\\\""));
-  self.output.append("\"");
+  self.output.append('\"');
+  long start = 0;
+  foreach (i, c : s) {
+    if (c != '"' && c != '\\' && c >= 0x20) continue;
+    if (i > start) self.output.append(s[start:i-start]);
+    switch (c) {
+      case '"': self.output.append(`\"`);
+      case '\\': self.output.append(`\\`);
+      case '\n': self.output.append(`\n`);
+      case '\r': self.output.append(`\r`);
+      case '\t': self.output.append(`\t`);
+      default: self.output.appendf(`\u%04x`, c);
+    }
+    start = i + 1;
+  }
+  if (start < s.len) self.output.append(s[start:s.len - start]);
+  self.output.append('\"');
 }
 
 fn void? JsonStringSerializer.struct_start(&self, String name) @dynamic {
-  self.output.append("{");
+  self.output.append('{');
 }
 
 fn void? JsonStringSerializer.struct_end(&self, String name) @dynamic {
   if (self.output[^1] == ',') {
-    self.output.chop(self.output.len() - 1);
+    self.output.set(self.output.len() - 1, '}');
+  } else {
+    self.output.append('}');
   }
-  self.output.append("}");
 }
 
 fn void? JsonStringSerializer.serialize_slice_start(&self, long len) @dynamic {
-  self.output.append("[");
+  self.output.append('[');
 }
 
 fn void? JsonStringSerializer.serialize_slice_end(&self, long len) @dynamic {
-  if (len > 0) self.output.chop(self.output.len() - 1);
-  self.output.append("]");
+  if (len > 0) {
+    self.output.set(self.output.len() - 1, ']');
+  } else {
+    self.output.append(']');
+  }
 }
 
 fn void? JsonStringSerializer.serialize_slice_item_end(&self, usz idx) @dynamic {
-  self.output.append(",");
+  self.output.append(',');
 }
 
 fn void? JsonStringSerializer.serialize_field_start(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
   self.serialize_string(name)!;
-  self.output.append(":");
+  self.output.append(':');
 }
 
 fn void? JsonStringSerializer.serialize_field_end(&self, String name, FieldAttrs fmt, typeid field_type) @dynamic {
-  self.output.append(",");
+  self.output.append(',');
 }
 
 fn String JsonStringSerializer.result(&self) => self.output.str_view();

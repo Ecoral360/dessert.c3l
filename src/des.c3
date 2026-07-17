@@ -4,7 +4,7 @@ import std::collections::maybe;
 import std::collections::map;
 import std::collections::object;
 import std::io;
-import dessert::utils;
+import dessert::utils @public;
 
 
 <*
@@ -174,57 +174,12 @@ macro Output? deserialize(deserializer) <Output> => @pool() {
 }
 
 
-<* thanks to @nonnorm for this helper macro ! *>
-macro @method_fallback(des, #method, #fallback = ...) @local {
-  var $method = $stringify(#method);
-  $switch:
-    $case $Typeof(des) == Deserializer:
-      if (&des.$method) {
-        return des.$method();
-      }
-      $if $defined(#fallback):
-        return #fallback;
-      $endif
 
-    $case $defined(des.$method):
-      return des.$method();
-
-    $case $defined(#fallback):
-      return #fallback;
-    $default:
-  $endswitch
+macro void? impl_deserialize(value, deserializer) {
+  return impl_deserialize_generic{$Typeof(value), $Typeof(deserializer)}(value, deserializer);
 }
 
-<* thanks to @nonnorm for this helper macro ! *>
-macro @method_fallback_chain(des, #method, ...) @local {
-	var $method = $stringify(#method);
-	$if $Typeof(des) == Deserializer:
-		if (&des.$method) {
-			return des.$method();
-		}
-
-		$for var $i = 0; $i < $vaarg.len; $i++:
-			var $fallback = $stringify($vaarg[$i]);
-			// Would prefer to use else if, but it probably doesn't matter
-			if (&des.$fallback) {
-				return des.$fallback();
-			}
-		$endfor
-	$endif
-
-	$if $defined(des.$method):
-		return des.$method();
-  $else
-    $for var $i = 0; $i < $vaarg.len; $i++:
-      var $fallback = $stringify($vaarg[$i]);
-      $if $defined(des.$fallback):
-        return des.$fallback();
-      $endif
-    $endfor
-  $endif
-}
-
-fn void? impl_deserialize(Value value, Des deserializer) <Value, Des> {
+fn void? impl_deserialize_generic(Value value, Des deserializer) <Value, Des> @private {
   return impl_deserialize_inline(value, deserializer);
 }
 
@@ -258,7 +213,7 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
 
       $switch $enum_config.as:
         $case DESCRIPTION:
-          String name = @method_fallback(deserializer, next_enum_description, deserializer.next_string())!;
+          String name = utils::@method_fallback{Deserializer}(deserializer, next_enum_description, deserializer.next_string())!;
           int found = -1;
           foreach(i, v : $type.names) {
             if (v == name) {
@@ -301,7 +256,7 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
 
     $case $Typeof(value)::inner.kind == UNION:
     $case $Typeof(value)::inner.kind == STRUCT:
-      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+      Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
       var $type = $Typeof(value)::inner;
       var $struct_config = $type.has_tag("dessert:des:struct") ??? $type.get_tag("dessert:des:struct") : (DStructConfig) {};
@@ -341,7 +296,7 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
         $else
           // Skip the value if not found
           (void) deserializer.next_field_name()!;
-          @method_fallback(deserializer, skip_next_value, @skip_next_value_fallback(deserializer))!;
+          utils::@method_fallback{Deserializer}(deserializer, skip_next_value, @skip_next_value_fallback(deserializer))!;
         $endif
       }
   $endswitch
@@ -516,10 +471,10 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       } else {
         $switch:
           $case Output == Object*:
-            return @method_fallback(deserializer, next_any, UNSUPPORTED_ANY~)!;
+            return utils::@method_fallback{Deserializer}(deserializer, next_any, UNSUPPORTED_ANY~)!;
 
           $case Output::inner.is_generic(List):
-            Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+            Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
             value = alloc::alloc(allocator, Output::inner);
             value.init(allocator);
@@ -532,7 +487,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             return value;
 
           $default:
-            Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+            Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
             value = alloc::alloc(allocator, Output::inner);
             *value = deserialize_value{Output::inner, Des}(deserializer, config)!;
@@ -558,7 +513,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       return value;
 
     $case Output::is_generic(HashMap):
-      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+      Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
       $if $Typeof(value.tkeys()[0]) != String:
         $error "Only a hashmap with string key can be deserialized";
@@ -576,7 +531,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       return value;
 
     $case Output::is_generic(List):
-      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+      Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
       value.init(allocator);
       defer catch value.free();
@@ -596,7 +551,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       }
 
     $case $defined(value.len) &&& $defined(value[0]) &&& Output != String:
-      Allocator allocator = @method_fallback(deserializer, get_allocator, tmem);
+      Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
       List{Output::inner} elements;
       deserializer.slice_start()!;
@@ -619,40 +574,40 @@ macro @deserialize_primitive_value($Type, des) @local {
       return des.next_string()!;
 
     $case char:
-      return @method_fallback(des, next_char, des.next_string()[0])!;
+      return utils::@method_fallback{Deserializer}(des, next_char, des.next_string()[0])!;
 
     $case bool:
       return des.next_bool()!;
 
     $case ichar:
-      return (ichar) @method_fallback(des, next_ichar, des.next_long())!;
+      return (ichar) utils::@method_fallback{Deserializer}(des, next_ichar, des.next_long())!;
 
     $case short:
-      return (short) @method_fallback(des, next_short, des.next_long())!;
+      return (short) utils::@method_fallback{Deserializer}(des, next_short, des.next_long())!;
 
     $case int:
-      return (int) @method_fallback(des, next_int, des.next_long())!;
+      return (int) utils::@method_fallback{Deserializer}(des, next_int, des.next_long())!;
 
     $case long:
       return des.next_long()!;
 
     $case int128:
-      return @method_fallback(des, next_int128, UNSUPPORTED_DATATYPE~)!;
+      return utils::@method_fallback{Deserializer}(des, next_int128, UNSUPPORTED_DATATYPE~)!;
 
     $case ushort:
-      return (ushort) @method_fallback_chain(des, next_ushort, next_ulong, next_long)!;
+      return (ushort) utils::@method_fallback_chain{Deserializer}(des, next_ushort, next_ulong, next_long)!;
 
     $case uint:
-      return (uint) @method_fallback_chain(des, next_uint, next_ulong, next_long)!;
+      return (uint) utils::@method_fallback_chain{Deserializer}(des, next_uint, next_ulong, next_long)!;
 
     $case ulong:
-      return (ulong) @method_fallback(des, next_ulong, des.next_long())!;
+      return (ulong) utils::@method_fallback{Deserializer}(des, next_ulong, des.next_long())!;
 
     $case uint128:
-      return @method_fallback(des, next_uint128, UNSUPPORTED_DATATYPE~)!;
+      return utils::@method_fallback{Deserializer}(des, next_uint128, UNSUPPORTED_DATATYPE~)!;
 
     $case float:
-      return (float) @method_fallback(des, next_float, des.next_double())!;
+      return (float) utils::@method_fallback{Deserializer}(des, next_float, des.next_double())!;
 
     $case double:
       return des.next_double()!;

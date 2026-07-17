@@ -14,7 +14,7 @@ macro serialize(String $typename) @const {
   return @sprintf("macro void? %s.serialize(&self, ser) => dessert::ser::impl_serialize{%s*, $Typeof(ser)}(self, ser);\n", $typename, $typename);
 }
 macro deserialize(String $typename) @const {
-  return @sprintf("macro void? %s.deserialize(&self, des) => dessert::des::impl_deserialize{%s*, $Typeof(des)}(self, des);\n", $typename, $typename);
+  return @sprintf("macro void? %s.deserialize(&self, des) => dessert::des::impl_deserialize(self, des);\n", $typename);
 }
 
 module derive;
