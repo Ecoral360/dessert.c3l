@@ -219,6 +219,13 @@ struct JsonSerializer (Serializer) {
   Allocator allocator;
 }
 
+macro JsonValue? serialize(Allocator allocator, value) {
+  return ser::serialize(&&json::serializer(allocator), value);
+}
+macro JsonValue? tserialize(value) {
+  return ser::serialize(&&json::serializer(), value);
+}
+
 fn JsonSerializer serializer(Allocator allocator = tmem) {
   List{JsonValue} output;
   output.init(allocator);

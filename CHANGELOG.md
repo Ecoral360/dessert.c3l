@@ -3,6 +3,7 @@
 All notable changes to dessert are documented here.
 
 ## 2026-07-14
+- Added `dotenv` deserializer format
 - Added option `rename_all` to `@DEnum` (only for `.as = DESCRIPTION`) for both serialization and deserialization
 - Made the required `Deserializer.next_long` optional (now falls back to `(long) Deserializer.next_double()`)
 
