@@ -25,7 +25,7 @@ import dessert::utils @public;
 
   Methods marked `@optional` may be omitted: the value is then read through a wider
   fallback method (documented per method). The required methods (the struct/slice
-  cursor, `next_null`, `next_bool`, `next_long`, `next_string`, `next_double`) form the
+  cursor, `next_null`, `next_bool`, `next_string`, `next_double`) form the
   minimal surface every format must provide.
 *>
 interface Deserializer {
@@ -76,12 +76,6 @@ interface Deserializer {
   <* Read a boolean value. *>
   fn bool? next_bool();
 
-  <*
-    Read a signed integer. This is the source every signed and (absent `next_ulong`)
-    unsigned integer type ultimately falls back to, so it must be implemented.
-  *>
-  fn long? next_long();
-
   <* Read a UTF-8 string. *>
   fn String? next_string();
 
@@ -119,6 +113,10 @@ interface Deserializer {
   fn short? next_short() @optional;
   <* Read an `int`. Optional: falls back to `next_long`. *>
   fn int? next_int() @optional;
+
+  <* Read a signed integer. Optional: falls back to `next_double`. *>
+  fn long? next_long() @optional;
+
   <* Read an `int128`. Optional: raises `UNSUPPORTED_DATA_TYPE` when absent (no fallback). *>
   fn int128? next_int128() @optional;
 
@@ -580,28 +578,28 @@ macro @deserialize_primitive_value($Type, des) @local {
       return des.next_bool()!;
 
     $case ichar:
-      return (ichar) utils::@method_fallback{Deserializer}(des, next_ichar, des.next_long())!;
+      return (ichar) utils::@method_fallback_chain{Deserializer}(des, next_ichar, next_long, next_double)!;
 
     $case short:
-      return (short) utils::@method_fallback{Deserializer}(des, next_short, des.next_long())!;
+      return (short) utils::@method_fallback_chain{Deserializer}(des, next_short, next_long, next_double)!;
 
     $case int:
-      return (int) utils::@method_fallback{Deserializer}(des, next_int, des.next_long())!;
+      return (int) utils::@method_fallback_chain{Deserializer}(des, next_int, next_long, next_double)!;
 
     $case long:
-      return des.next_long()!;
+      return (long) utils::@method_fallback{Deserializer}(des, next_long, des.next_double())!;
 
     $case int128:
       return utils::@method_fallback{Deserializer}(des, next_int128, UNSUPPORTED_DATATYPE~)!;
 
     $case ushort:
-      return (ushort) utils::@method_fallback_chain{Deserializer}(des, next_ushort, next_ulong, next_long)!;
+      return (ushort) utils::@method_fallback_chain{Deserializer}(des, next_ushort, next_ulong, next_long, next_double)!;
 
     $case uint:
-      return (uint) utils::@method_fallback_chain{Deserializer}(des, next_uint, next_ulong, next_long)!;
+      return (uint) utils::@method_fallback_chain{Deserializer}(des, next_uint, next_ulong, next_long, next_double)!;
 
     $case ulong:
-      return (ulong) utils::@method_fallback{Deserializer}(des, next_ulong, des.next_long())!;
+      return (ulong) utils::@method_fallback_chain{Deserializer}(des, next_ulong, next_long, next_double)!;
 
     $case uint128:
       return utils::@method_fallback{Deserializer}(des, next_uint128, UNSUPPORTED_DATATYPE~)!;

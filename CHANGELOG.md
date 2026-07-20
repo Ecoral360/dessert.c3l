@@ -2,6 +2,9 @@
 
 All notable changes to dessert are documented here.
 
+## 2026-07-14
+- Made the required `Deserializer.next_long` optional (now falls back to `(long) Deserializer.next_double()`)
+
 ## 2026-07-13
 - Added the optional `skip_next_value` for the deserializer
 - Added support for all the `rename_all` options

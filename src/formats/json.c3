@@ -280,7 +280,6 @@ fn void? JsonSerializer.serialize_field_end(&self, String name, FieldAttrs fmt, 
 
 fn JsonValue? JsonSerializer.result(&self) => self.output.pop();
 
-
 struct JsonStringSerializer (Serializer) {
   DString output;
 }
@@ -403,14 +402,56 @@ enum JsonFlavor {
   JSONC,
 }
 
+macro @is_valid_input(input) @local => $Typeof(input) == String ||| $defined(InStream x = input);
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro Type? deserialize(Allocator allocator, input, JsonFlavor flavor = JSONC) <Type> {
+  return des::deserialize{Type}(&&json::deserializer(allocator, input, flavor));
+}
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro Type? tdeserialize(input, JsonFlavor flavor = JSONC) <Type> {
+  return des::deserialize{Type}(&&json::tdeserializer(input, flavor));
+}
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro JsonDeserializer deserializer(Allocator allocator, input, JsonFlavor flavor = JSONC, ..., bool debug = false) {
+  // $if $Typeof(input) == String:
+  //   ByteReader reader;
+  //   InStream input_s = reader.init(input);
+  //   return { .input = input_s, .read_byte = &input_s.read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
+  // $else
+  //   return { .input = input, .read_byte = &((InStream) input).read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
+  // $endif
+  $if $Typeof(input) == String:
+    return { .input = input, .allocator = allocator, .flavor = flavor, .is_debug = debug };
+  $else
+    String s_str = (String)io::read_fully(tmem, input)!!;
+    return { .input = s_str, .allocator = allocator, .flavor = flavor, .is_debug = debug };
+  $endif
+}
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro JsonDeserializer tdeserializer(input, JsonFlavor flavor = JSONC, ..., bool debug = false) => deserializer(tmem, input, flavor, debug: debug);
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro JsonDeserializer? debug_deserializer(Allocator allocator, input, JsonFlavor flavor = JSONC) @deprecated("Use `json::deserializer(..., debug: true)` instead")
+  => deserializer(allocator, input, flavor, debug: true);
+
+<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
+macro JsonDeserializer? tdebug_deserializer(input, JsonFlavor flavor = JSONC) @deprecated("Use `json::tdeserializer(..., debug: true)` instead") 
+  => debug_deserializer(tmem, input, flavor);
+
 alias ReadByteFn = fn char?(void*);
 
 struct JsonDeserializer(Deserializer) {
-  // JsonValue input;
-  InStream input;
-  ReadByteFn read_byte;
+  // InStream input;
+  // ReadByteFn read_byte;
+  //
+  // Maybe{char} current;
+  String input;
+  int current;
 
-  Maybe{char} current;
   Allocator allocator;
   Maybe{String} peeked_field;
   int col;
@@ -419,36 +460,38 @@ struct JsonDeserializer(Deserializer) {
   JsonFlavor flavor;
 }
 
-fn char? JsonDeserializer.next(&self) {
-  if (try c = self.current.get()) {
-    self.current.reset();
-    return c;
-  }
+fn char? JsonDeserializer.next(&self) @inline {
+  // if (try c = self.current.get()) {
+  //   self.current.reset();
+  //   return c;
+  // }
 
-  char c = self.read_byte(self.input)!;
-  if (self.is_debug) {
-    if (c == '\n') {
-      self.line += 1;
-      self.col = 0;
-    } else {
-      self.col += 1;
-    }
-  }
+  if (!self.has_next()) return io::EOF~;
+  char c = self.input[self.current++]; // self.read_byte(self.input)!;
+  // if (self.is_debug) {
+  //   if (c == '\n') {
+  //     self.line += 1;
+  //     self.col = 0;
+  //   } else {
+  //     self.col += 1;
+  //   }
+  // }
   return c;
 }
 
-fn char? JsonDeserializer.peek(&self) {
-  if (try c = self.current.get()) {
-    return c;
-  }
-  char c = self.next()!;
-  self.current = maybe::value(c);
-  return c;
+fn char? JsonDeserializer.peek(&self) @inline {
+  // if (try c = self.current.get()) {
+  //   return c;
+  // }
+  // char c = self.next()!;
+  // self.current = maybe::value(c);
+  // return c;
+  if (!self.has_next()) return io::EOF~;
+  return self.input[self.current];
 }
 
-fn bool JsonDeserializer.has_next(&self) {
-  if (try self.peek()) return true;
-  return false;
+fn bool JsonDeserializer.has_next(&self) @inline {
+  return self.current < self.input.len;
 }
 
 <*
@@ -524,40 +567,6 @@ fn void? JsonDeserializer.skip_whitespace(&self) {
     break;
   }
 }
-
-macro @is_valid_input(input) @local => $Typeof(input) == String ||| $defined(InStream x = input);
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro Type? deserialize(Allocator allocator, input, JsonFlavor flavor = JSONC) <Type> {
-  return des::deserialize{Type}(&&json::deserializer(allocator, input, flavor));
-}
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro Type? tdeserialize(input, JsonFlavor flavor = JSONC) <Type> {
-  return des::deserialize{Type}(&&json::tdeserializer(input, flavor));
-}
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro JsonDeserializer deserializer(Allocator allocator, input, JsonFlavor flavor = JSONC, ..., bool debug = false) {
-  $if $Typeof(input) == String:
-    ByteReader reader;
-    InStream input_s = reader.init(input);
-    return { .input = input_s, .read_byte = &input_s.read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
-  $else
-    return { .input = input, .read_byte = &((InStream) input).read_byte, .allocator = allocator, .flavor = flavor, .is_debug = debug };
-  $endif
-}
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro JsonDeserializer tdeserializer(input, JsonFlavor flavor = JSONC, ..., bool debug = false) => deserializer(tmem, input, flavor, debug: debug);
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro JsonDeserializer? debug_deserializer(Allocator allocator, input, JsonFlavor flavor = JSONC) @deprecated("Use `json::deserializer(..., debug: true)` instead")
-  => deserializer(allocator, input, flavor, debug: true);
-
-<* @require @is_valid_input(input) : "input must be a string or an InStream" *>
-macro JsonDeserializer? tdebug_deserializer(input, JsonFlavor flavor = JSONC) @deprecated("Use `json::tdeserializer(..., debug: true)` instead") 
-  => debug_deserializer(tmem, input, flavor);
 
 
 fn Allocator JsonDeserializer.get_allocator(&self) @dynamic => self.allocator;
@@ -1085,10 +1094,6 @@ fn double? JsonDeserializer.next_double(&self) @dynamic {
 
 fn char? JsonDeserializer.next_char(&self) @dynamic {
   return (char) self.next_double()!;
-}
-
-fn long? JsonDeserializer.next_long(&self) @dynamic {
-  return (long) self.next_double()!;
 }
 
 fn bool? JsonDeserializer.next_bool(&self) @dynamic {
