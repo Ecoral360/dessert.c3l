@@ -4,7 +4,7 @@ A universal serialization and deserialization library for the [C3 programming la
 
 ## Goal
 
-Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats. It ships three formats out of the box - **JSON** (serialize + deserialize), **CSV** (serialize), and **XML** (serialize) - and lets you add your own by implementing two interfaces. It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
+Dessert provides a flexible, type-safe framework for converting C3 structs to and from various formats. It ships several formats out of the box - **JSON** (serialize + deserialize), **CSV** (serialize), **XML** (serialize), and **dotenv** (deserialize) - and lets you add your own by implementing two interfaces. It uses compile-time macros to generate serialization/deserialization code, ensuring type safety and minimal runtime overhead.
 
 The library is built around two core interfaces:
 - **Serializer**: Converts C3 structs into a target format
@@ -52,6 +52,7 @@ The `dessert::format::json` module (reachable as `json::`) provides a complete J
 **Serializers:**
 - `json::serializer` produces a `JsonValue` (with methods like `to_string()` / `to_pretty_string()`). Accepts an optional allocator: `json::serializer(allocator)` (defaults to `tmem`).
 - `json::string_serializer` produces a JSON string directly (also allocator-optional, defaults to `tmem`).
+- Convenience one-shot macros: `json::string_serialize(allocator, value)` and `json::tstring_serialize(value)` (uses `tmem`) serialize a value straight to a JSON `String`.
 
 **Deserializers** take a `String` **or** an `InStream` as input:
 - `json::deserializer(allocator, input, flavor = JSONC)` - deserializer with a custom allocator.
@@ -82,6 +83,24 @@ struct Point {
     int y @DFieldSer({ .fmt = { "xml:attribute" } });
 }
 // { .x = 1, .y = 2 } → <point x="1" y="2"></point>
+```
+
+### Dotenv (`.env`)
+
+The `dessert::format::dotenv` module (reachable as `dotenv::`) provides a deserializer for `.env`-style files (`KEY=value` lines). Only deserialization is supported (no serializer). It reads directly from a file path:
+
+- `dotenv::load{Type}(allocator, filepath = ".env")` - deserialize a `.env` file with a custom allocator.
+- `dotenv::tload{Type}(filepath = ".env")` - convenience variant that uses `tmem`.
+
+```c3
+struct Config @DStruct({ .rename_all = UPPER_CASE }) {
+    String database_url;
+    int    port;
+    bool   debug;
+}
+
+// reads ./.env by default
+Config? cfg = dotenv::tload{Config}();
 ```
 
 ### Attributes
@@ -185,6 +204,7 @@ enum Color @DEnum({ .as = DESCRIPTION }) {
 | Option      | Type          | Description                                                                          |
 |-------------|---------------|--------------------------------------------------------------------------------------|
 | `.as`       | `DessertEnum` | How to represent the enum: `DESCRIPTION` (default), `ORDINAL`, or `FIELD`           |
+| `.rename_all` | `CaseConvention` | Rewrite variant names using a naming convention (applies when the enum is encoded by name, i.e. `.as = DESCRIPTION`) |
 | `.field`    | `String`      | Name of the associated field to use when `.as = FIELD`                               |
 | `.fallback` | `String`      | Name of the variant to use when the JSON value doesn't match any known variant (deserialization only). If not set, `INVALID_ENUM_VALUE` is raised instead. |
 
@@ -569,7 +589,6 @@ interface Deserializer {
 
   fn bool? next_null();
   fn bool? next_bool();
-  fn long? next_long();
   fn String? next_string();
   fn double? next_double();
 
@@ -580,6 +599,7 @@ interface Deserializer {
   fn char? next_char() @optional;   // falls back to next_string()[0]
   fn ichar? next_ichar() @optional;    // falls back to next_long
 
+  fn long? next_long() @optional;      // falls back to next_double
   fn short? next_short() @optional;   // falls back to next_long
   fn int? next_int() @optional;        // falls back to next_long
   fn int128? next_int128() @optional;  // returns UNSUPPORTED_DATA_TYPE if absent
@@ -663,6 +683,7 @@ Dessert uses C3's fault system for error handling:
 - [x] Serialize to JSON
 - [x] Serialize to CSV (slices of structs)
 - [x] Serialize to XML (with `xml:attribute` fields)
+- [x] Deserialize from `.env` files (`dotenv::load` / `dotenv::tload`)
 - [x] JSONC / JSON5-style relaxed parsing (`JsonFlavor`)
 - [x] Recursive struct serialization
 - [x] Serialize Maybe fields
@@ -684,6 +705,7 @@ Dessert uses C3's fault system for error handling:
 - [x] Serialize/deserialize tagged union fields (named, anonymous, inlined)
 - [x] Field flattening via `@DField({ .flatten = true })`
 - [x] Bulk field rename via `@DStruct({ .rename_all = CAMEL_CASE })`
+- [x] Bulk enum-variant rename via `@DEnum({ .rename_all = ... })`
 - [x] Format-specific field attributes via `@DField({ .fmt = { ... } })`
 - [x] Reject duplicate keys via `@DStruct({ .deny_dup_keys = true })`
 - [x] Default values for missing fields via `@DField({ .default_value = "..." })`
