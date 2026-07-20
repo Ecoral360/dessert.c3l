@@ -23,11 +23,11 @@ macro @get_maybe_inner_type($Type) {
 
 macro @get_tag($Type, String $tag_name, $default_val) @const @builtin => $Type::has_tag($tag_name) ??? $Type::get_tag($tag_name) : $default_val;
 
-macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) @const {
+macro @rename(DFieldConfig $config, String $name, CaseConvention $convention) @const {
   $if $config.rename.len > 0:
     return $config.rename;
   $else
-    $switch $struct_config.rename_all:
+    $switch $convention:
       $case VERBATIM:
         return $name;
 
@@ -56,6 +56,40 @@ macro @rename(DFieldConfig $config, String $name, DStructConfig $struct_config) 
         $error @sprintf("CaseConvention %s not supported for now.");
     $endswitch
   $endif
+}
+
+fn String rename_enum_description(String name, CaseConvention convention) {
+  switch (convention) {
+    case VERBATIM:
+      return name;
+
+    case CAMEL_CASE:
+      name = name.to_lower_tcopy();
+      name.convert_snake_to_pascal();
+      name[0] = ascii::@to_lower(name[0]);
+      return name;
+
+    case PASCAL_CASE:
+      name = name.to_lower_tcopy();
+      name.convert_snake_to_pascal();
+      return name;
+
+    case SNAKE_CASE:
+      return name.to_lower_tcopy();
+
+    case CONSTANT_CASE:
+      return name;
+
+    case LOWER_CASE:
+      return name.to_lower_tcopy();
+
+    case UPPER_CASE:
+      return name;
+
+    case KEBAB_CASE:
+      name = name.to_lower_tcopy();
+      return name.treplace("_", "-");
+  }
 }
 
 

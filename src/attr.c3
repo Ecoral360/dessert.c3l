@@ -121,6 +121,7 @@ attrdef @DFieldDes(DFieldConfig config) = @tag("dessert:des:field", config);
 
 struct DEnumConfig {
   DessertEnum as;
+  CaseConvention rename_all;
   String field;
   String fallback;
 }

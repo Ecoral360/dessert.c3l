@@ -967,3 +967,85 @@ fn void test_foo_with_hashmap() @test {
   assert(output == `{"found":{"baz":-2,"bar":1},"toulouse":{"city":"Toulouse","temp":18.000000,"sunny":false},"bar":"hello"}`);
 
 }
+
+$expand(derive(DessertKindKebab::name, dessert));
+enum DessertKindKebab @DEnum({ .rename_all = KEBAB_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindUpper::name, dessert));
+enum DessertKindUpper @DEnum({ .rename_all = UPPER_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindVerbatim::name, dessert));
+enum DessertKindVerbatim @DEnum({ .rename_all = VERBATIM }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindCamel::name, dessert));
+enum DessertKindCamel @DEnum({ .rename_all = CAMEL_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindPascal::name, dessert));
+enum DessertKindPascal @DEnum({ .rename_all = PASCAL_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindConstant::name, dessert));
+enum DessertKindConstant @DEnum({ .rename_all = CONSTANT_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindSnake::name, dessert));
+enum DessertKindSnake @DEnum({ .rename_all = SNAKE_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindLower::name, dessert));
+enum DessertKindLower @DEnum({ .rename_all = LOWER_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+fn void test_enum_rename_all() @test => @pool() {
+  String kebab_output = json::string_serialize(tmem, DessertKindKebab.PEACH_COBBLER)!!;
+  test::eq(kebab_output, `"peach-cobbler"`);
+
+  String upper_output = json::string_serialize(tmem, DessertKindUpper.PEACH_COBBLER)!!;
+  test::eq(upper_output, `"PEACH_COBBLER"`);
+
+  String verbatim_output = json::string_serialize(tmem, DessertKindVerbatim.PEACH_COBBLER)!!;
+  test::eq(verbatim_output, `"PEACH_COBBLER"`);
+
+  String camel_output = json::string_serialize(tmem, DessertKindCamel.PEACH_COBBLER)!!;
+  test::eq(camel_output, `"peachCobbler"`);
+
+  String pascal_output = json::string_serialize(tmem, DessertKindPascal.PEACH_COBBLER)!!;
+  test::eq(pascal_output, `"PeachCobbler"`);
+
+  String constant_output = json::string_serialize(tmem, DessertKindConstant.PEACH_COBBLER)!!;
+  test::eq(constant_output, `"PEACH_COBBLER"`);
+
+  String snake_output = json::string_serialize(tmem, DessertKindSnake.PEACH_COBBLER)!!;
+  test::eq(snake_output, `"peach_cobbler"`);
+
+  String lower_output = json::string_serialize(tmem, DessertKindLower.PEACH_COBBLER)!!;
+  test::eq(lower_output, `"peach_cobbler"`);
+}

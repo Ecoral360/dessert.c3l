@@ -211,23 +211,28 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
 
       $switch $enum_config.as:
         $case DESCRIPTION:
-          String name = utils::@method_fallback{Deserializer}(deserializer, next_enum_description, deserializer.next_string())!;
-          int found = -1;
-          foreach(i, v : $type.names) {
-            if (v == name) {
-              found = (int) i;
-              break;
-            }
-          }
+          Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-          if (found == -1) {
+          String name = utils::@method_fallback{Deserializer}(deserializer, next_enum_description, deserializer.next_string())!;
+          defer alloc::free(allocator, name);
+
+          int found = -1;
+          var $name_switch = "switch (name) {";
+
+          $foreach $i, $v : $type.names:
+            $name_switch +++= @sprintf(`case "%s": *value = %s;`, utils::@rename({}, $v, $enum_config.rename_all), $v);
+          $endforeach
+
+          $name_switch +++= `default: 
             $if $enum_config.fallback.len > 0:
               return;
             $else
               return INVALID_ENUM_VALUE~;
             $endif
-          }
-          *value = $type.values[found];
+          `;
+
+          $name_switch +++= "}";
+          $expand($name_switch);
 
         $case ORDINAL:
           $Typefrom($type.inner) ordinal = deserialize{$type.inner}(deserializer)!;
@@ -307,7 +312,7 @@ macro void? @skip_next_value_fallback(deserializer) @local {
 
 macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DStructConfig $struct_config, allocator) @local {
   DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
-  var $name = utils::@rename($config, $member.name, $struct_config);
+  var $name = utils::@rename($config, $member.name, $struct_config.rename_all);
 
   $if $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
     $foreach $m : $member.type.members:
@@ -572,7 +577,25 @@ macro @deserialize_primitive_value($Type, des) @local {
       return des.next_string()!;
 
     $case char:
-      return utils::@method_fallback{Deserializer}(des, next_char, des.next_string()[0])!;
+      $switch:
+        $case $Typeof(des) == Deserializer:
+          if (&des.next_char) {
+            return des.next_char()!;
+          }
+          String s = des.next_string()!;
+          Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
+          defer alloc::free(allocator, s);
+          return s[0];
+
+        $case $defined(des.next_char):
+          return des.next_char();
+
+        $default:
+          String s = des.next_string()!;
+          Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
+          defer alloc::free(allocator, s);
+          return s[0];
+      $endswitch
 
     $case bool:
       return des.next_bool()!;

@@ -210,7 +210,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
 
   $if !$is_flatten:
     serializer.serialize_field_start(
-      utils::@rename($config, $member.name, $struct_config),
+      utils::@rename($config, $member.name, $struct_config.rename_all),
       $config.fmt,
       $member.type,
     )!;
@@ -240,7 +240,7 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
 
   $if !$is_flatten:
     serializer.serialize_field_end(
-      utils::@rename($config, $member.name, $struct_config),
+      utils::@rename($config, $member.name, $struct_config.rename_all),
       $config.fmt,
       $member.type,
     )!;
@@ -494,7 +494,7 @@ macro impl_serialize_enum(s, serializer) @local {
 
   $switch $enum_config.as:
     $case DESCRIPTION:
-      return serialize_value(serializer, s.description, (DFieldConfig) {});
+      return serialize_value(serializer, utils::rename_enum_description(s.description, $enum_config.rename_all), (DFieldConfig) {});
 
     $case ORDINAL:
       return serialize_value(serializer, s.ordinal, (DFieldConfig) {});

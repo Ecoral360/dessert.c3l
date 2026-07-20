@@ -1288,3 +1288,86 @@ fn void test_list_flat_pointer() @test => @pool() {
   alloc::free(mem, v.numbers);
 }
 
+
+$expand(derive(DessertKind::name, dessert));
+enum DessertKind @DEnum({ .rename_all = KEBAB_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindUpper::name, dessert));
+enum DessertKindUpper @DEnum({ .rename_all = UPPER_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindVerbatim::name, dessert));
+enum DessertKindVerbatim @DEnum({ .rename_all = VERBATIM }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindCamel::name, dessert));
+enum DessertKindCamel @DEnum({ .rename_all = CAMEL_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindPascal::name, dessert));
+enum DessertKindPascal @DEnum({ .rename_all = PASCAL_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindConstant::name, dessert));
+enum DessertKindConstant @DEnum({ .rename_all = CONSTANT_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindSnake::name, dessert));
+enum DessertKindSnake @DEnum({ .rename_all = SNAKE_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+$expand(derive(DessertKindLower::name, dessert));
+enum DessertKindLower @DEnum({ .rename_all = LOWER_CASE }) {
+  BANANA_SPLIT,
+  CHOCOLATE_CROISSANT,
+  PEACH_COBBLER
+}
+
+
+fn void test_enum_rename_all() @test => @pool() {
+  DessertKind kebab = json::deserialize{DessertKind}(mem, `"peach-cobbler"`)!!;
+  test::eq(kebab, DessertKind.PEACH_COBBLER);
+
+  DessertKindUpper upper = json::deserialize{DessertKindUpper}(mem, `"PEACH_COBBLER"`)!!;
+  test::eq(upper, DessertKindUpper.PEACH_COBBLER);
+
+  DessertKindVerbatim verbatim = json::deserialize{DessertKindVerbatim}(mem, `"PEACH_COBBLER"`)!!;
+  test::eq(verbatim, DessertKindVerbatim.PEACH_COBBLER);
+
+  DessertKindCamel camel = json::deserialize{DessertKindCamel}(mem, `"peachCobbler"`)!!;
+  test::eq(camel, DessertKindCamel.PEACH_COBBLER);
+
+  DessertKindPascal pascal = json::deserialize{DessertKindPascal}(mem, `"PeachCobbler"`)!!;
+  test::eq(pascal, DessertKindPascal.PEACH_COBBLER);
+
+  DessertKindConstant constant = json::deserialize{DessertKindConstant}(mem, `"PEACH_COBBLER"`)!!;
+  test::eq(constant, DessertKindConstant.PEACH_COBBLER);
+
+  DessertKindSnake snake = json::deserialize{DessertKindSnake}(mem, `"peach_cobbler"`)!!;
+  test::eq(snake, DessertKindSnake.PEACH_COBBLER);
+
+  DessertKindLower lower = json::deserialize{DessertKindLower}(mem, `"peach_cobbler"`)!!;
+  test::eq(lower, DessertKindLower.PEACH_COBBLER);
+}
