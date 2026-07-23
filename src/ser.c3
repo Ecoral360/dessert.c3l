@@ -234,7 +234,11 @@ macro @serialize_field(serializer, DFieldConfig $config, s, $member, DStructConf
         $endif
 
       $default:
-        serialize_value(serializer, s.$member, $config)!;
+        $if $defined(s.$eval(@sprintf("serialize_%s", $member.name))) &&& $defined(s.$eval(@sprintf("serialize_%s", $member.name))(serializer)):
+          s.$eval(@sprintf("serialize_%s", $member.name))(serializer)!;
+        $else
+          serialize_value(serializer, s.$member, $config)!;
+        $endif
     $endswitch
   $endif
 

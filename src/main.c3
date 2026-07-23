@@ -15,6 +15,18 @@ enum Loglevel @DEnum({ .rename_all = LOWER_CASE }) {
   ERROR,
 }
 
+faultdef INVALID_EMAIL;
+
+typedef Email = String;
+macro void? Email.serialize(&self, ser) => ser.serialize_string((String) *self)!;
+macro void? Email.deserialize(&self, des) {
+  String s = des.next_string()!;
+  if (!s.contains("@")) {
+    return INVALID_EMAIL~;
+  }
+  *self = (Email) s;
+}
+
 $expand(derive(Settings::name, dessert));
 struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
   String api_key;
@@ -22,7 +34,23 @@ struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
   bool debug;
   String url;
   Loglevel log_level @DField({ .rename = "LOG" });
+
+  Email email @DField({ .required = true });
+  String other_email;
 }
+
+fn void? Settings.serialize_other_email(&self, Serializer ser) {
+  ser.serialize_string(string::tformat("custom: %s", self.other_email))!;
+}
+
+fn String? Settings.deserialize_other_email(&self, Deserializer des) {
+  String s = des.next_string()!;
+  if (!s.contains("@")) {
+    return INVALID_EMAIL~;
+  }
+  return s;
+}
+
 
 fn void main() {
   Settings settings = dotenv::tload{Settings}()!!;

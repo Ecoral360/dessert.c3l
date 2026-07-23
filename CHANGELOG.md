@@ -2,6 +2,12 @@
 
 All notable changes to dessert are documented here.
 
+## 0.1.0
+
+- Changed the version naming to make it easier to follow, this version is 0.1.0 !
+- Added `deserialize_<field>` and `serialize_<field>` methods to customize the de/serialization of a certain field
+- Added `required` field option for deserialization
+
 ## 2026-07-14
 - Added `dotenv` deserializer format
 - Added option `rename_all` to `@DEnum` (only for `.as = DESCRIPTION`) for both serialization and deserialization

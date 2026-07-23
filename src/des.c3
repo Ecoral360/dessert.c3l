@@ -61,11 +61,14 @@ interface Deserializer {
   <* Enter a sequence (slice/array/List), positioning the cursor before its first item. Balanced by `slice_end`. *>
   fn void? slice_start();
 
+  <* Leave the current sequence, balancing the matching `slice_start`. *>
+  fn void? slice_end();
+
   <* @returns "`true` if the current sequence has another item to read, `false` once exhausted" *>
   fn bool? has_next_slice_item();
 
-  <* Leave the current sequence, balancing the matching `slice_start`. *>
-  fn void? slice_end();
+  <* If present, will be used to preallocate the correct len for the array/slice *>
+  fn sz? compute_slice_len() @optional;
 
   <*
     Test for a null value.
@@ -143,7 +146,7 @@ interface Deserializer {
 }
 
 faultdef VALIDATOR_ERROR;
-faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE, UNKNOWN_FIELD, INLINED_UNION_BEFORE_TAG, UNMAPPED_UNION_VARIANT;
+faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE, UNKNOWN_FIELD, INLINED_UNION_BEFORE_TAG, UNMAPPED_UNION_VARIANT, MISSING_REQUIRED_FIELD;
 faultdef UNSUPPORTED_DATA_TYPE, UNSUPPORTED_ANY;
 
 // Should be treated as a protocol, don't derive it directly
@@ -302,6 +305,15 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
           utils::@method_fallback{Deserializer}(deserializer, skip_next_value, @skip_next_value_fallback(deserializer))!;
         $endif
       }
+      $foreach $i, $member : $Typeof(value)::inner.members:
+        DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
+        $if $config.required:
+          if (!names[$i]) {
+            io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', missing required field '%s'.", $member.name);
+            return MISSING_REQUIRED_FIELD~;
+          }
+        $endif
+      $endforeach
   $endswitch
 }
 
@@ -326,121 +338,126 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
   $else 
     if ($name == next_key) {
       $if !$config.skip:
-        $switch:
-          $case $member.type.kind == UNION &&& $config.tagged.inlined:
-            $if $config.tagged.by.len == 0:
-              $error @sprintf("Inlined unions MUST have a 'tagged_by' value for deserialization (%s)", $member.name);
-            $endif
+        $if $defined(value.$eval(@sprintf("deserialize_%s", $member.name))) &&& $defined(value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)):
+          (void) deserializer.next_field_name()!;
+          value.$member = value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)!;
+        $else
+          $switch:
+            $case $member.type.kind == UNION &&& $config.tagged.inlined:
+              $if $config.tagged.by.len == 0:
+                $error @sprintf("Inlined unions MUST have a 'tagged_by' value for deserialization (%s)", $member.name);
+              $endif
 
-            if (!array::contains(names, @str_hash($config.tagged.by))) {
-              io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', encountered inlined union field '%s' before tag key '%s'.", next_key, $config.tagged.by);
-              return INLINED_UNION_BEFORE_TAG~;
-            }
+              if (!array::contains(names, @str_hash($config.tagged.by))) {
+                io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', encountered inlined union field '%s' before tag key '%s'.", next_key, $config.tagged.by);
+                return INLINED_UNION_BEFORE_TAG~;
+              }
 
-            var tag_value = value.$eval($config.tagged.by);
-            var next_value = value.$member;
+              var tag_value = value.$eval($config.tagged.by);
+              var next_value = value.$member;
 
-            var $the_switch = "";
-            var $UType = $member.type;
+              var $the_switch = "";
+              var $UType = $member.type;
 
-            $switch:
-              $case $config.tagged.match.by == ORDINAL ||| $Typeof(tag_value)::kind != ENUM:
-                $the_switch = "switch ((sz) tag_value) {";
-                $foreach $i, $m : $UType::members:
-                  $the_switch +++= @sprintf("case %s:\n", $i);
-                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
-                $endforeach
-                $the_switch +++= @default_unmapped($config);
-                $the_switch +++= "}";
+              $switch:
+                $case $config.tagged.match.by == ORDINAL ||| $Typeof(tag_value)::kind != ENUM:
+                  $the_switch = "switch ((sz) tag_value) {";
+                  $foreach $i, $m : $UType::members:
+                    $the_switch +++= @sprintf("case %s:\n", $i);
+                    $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                  $endforeach
+                  $the_switch +++= @default_unmapped($config);
+                  $the_switch +++= "}";
 
-              $case $config.tagged.match.by == DESCRIPTION:
-                $the_switch = "switch (tag_value) {";
-                $foreach $i, $m : $UType::members:
-                  $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
-                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
-                $endforeach
-                $the_switch +++= @default_unmapped($config);
-                $the_switch +++= "}";
+                $case $config.tagged.match.by == DESCRIPTION:
+                  $the_switch = "switch (tag_value) {";
+                  $foreach $i, $m : $UType::members:
+                    $the_switch +++= @sprintf("case %s:\n", @str_upper($m.name));
+                    $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                  $endforeach
+                  $the_switch +++= @default_unmapped($config);
+                  $the_switch +++= "}";
 
-              $case $config.tagged.match.by == FIELD:
-                var $field_name = $config.tagged.match.field;
-                $if $field_name.len == 0:
-                  $error "While serializing a tagged union: When the 'tagged.match_by' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
-                $endif
+                $case $config.tagged.match.by == FIELD:
+                  var $field_name = $config.tagged.match.field;
+                  $if $field_name.len == 0:
+                    $error "While serializing a tagged union: When the 'tagged.match_by' attribute is set to 'FIELD', 'field' must be provided with the name of an associated field of the enum.";
+                  $endif
 
-                $if !$defined(tag_value.$field_name):
-                  $error @sprintf("Enum %s doesn't have field '%s'", $Typeof(tag_value)::name, $field_name);
-                $endif
+                  $if !$defined(tag_value.$field_name):
+                    $error @sprintf("Enum %s doesn't have field '%s'", $Typeof(tag_value)::name, $field_name);
+                  $endif
 
-                $if $Typeof(tag_value.$field_name) != String:
-                  $error @sprintf("To be used as a union variant matcher, the field must be an string (was '%s')", $field_name);
-                $endif
+                  $if $Typeof(tag_value.$field_name) != String:
+                    $error @sprintf("To be used as a union variant matcher, the field must be an string (was '%s')", $field_name);
+                  $endif
 
-                $the_switch = @sprintf("switch (tag_value.%s) {", $field_name);
-                $foreach $i, $m : $UType::members:
-                  $the_switch +++= @sprintf("case \"%s\":\n", $m.name);
-                  $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
-                $endforeach
-                $the_switch +++= @default_unmapped($config);
+                  $the_switch = @sprintf("switch (tag_value.%s) {", $field_name);
+                  $foreach $i, $m : $UType::members:
+                    $the_switch +++= @sprintf("case \"%s\":\n", $m.name);
+                    $the_switch +++= @sprintf("@des_field(deserializer, &next_value, $UType::members[%s], $UType::members[%s].name, {}, {}, allocator)!;\n", $i, $i);
+                  $endforeach
+                  $the_switch +++= @default_unmapped($config);
 
-                $the_switch +++= "}";
+                  $the_switch +++= "}";
 
-            $endswitch
+              $endswitch
 
-            $expand($the_switch);
+              $expand($the_switch);
 
-            value.$member = next_value;
+              value.$member = next_value;
 
-          $case $member.type.kind == UNION &&& !$config.tagged.inlined:
-          $case $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
-          $case $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
-            (void) deserializer.next_field_name()!;
-            deserializer.struct_start($member.type.name)!;
-            impl_deserialize_inline(&value.$member, deserializer)!;
-            deserializer.struct_end($member.type.name)!;
+            $case $member.type.kind == UNION &&& !$config.tagged.inlined:
+            $case $member.type.name == @sprintf("%s.%s", $Typeof(value)::inner.name, $member.name):
+            $case $member.type.name == @sprintf("%s.$anon", $Typeof(value)::inner.name):
+              (void) deserializer.next_field_name()!;
+              deserializer.struct_start($member.type.name)!;
+              impl_deserialize_inline(&value.$member, deserializer)!;
+              deserializer.struct_end($member.type.name)!;
 
-          $case $member.type.is_generic(List) &&& $config.flatten:
-            (void) deserializer.next_field_name()!;
+            $case $member.type.is_generic(List) &&& $config.flatten:
+              (void) deserializer.next_field_name()!;
 
-            $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
-            if (catch e = next_value) {
-              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
-              next_value!;
-              return false;
-            }
+              $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
+              if (catch e = next_value) {
+                io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+                next_value!;
+                return false;
+              }
 
-            if (!value.$member.is_initialized()) value.$member.init(allocator);
-            value.$member.push(next_value);
+              if (!value.$member.is_initialized()) value.$member.init(allocator);
+              value.$member.push(next_value);
 
-          $case $member.type.kind == POINTER &&& $member.type.inner.is_generic(List) &&& $config.flatten:
-            (void) deserializer.next_field_name()!;
+            $case $member.type.kind == POINTER &&& $member.type.inner.is_generic(List) &&& $config.flatten:
+              (void) deserializer.next_field_name()!;
 
-            $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
-            if (catch e = next_value) {
-              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
-              next_value!;
-              return false;
-            }
+              $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
+              if (catch e = next_value) {
+                io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+                next_value!;
+                return false;
+              }
 
-            if (value.$member == null) {
-              value.$member = alloc::alloc(allocator, $member.type.inner);
-              value.$member.init(allocator);
-            }
-            value.$member.push(next_value);
+              if (value.$member == null) {
+                value.$member = alloc::alloc(allocator, $member.type.inner);
+                value.$member.init(allocator);
+              }
+              value.$member.push(next_value);
 
-          $default:
-            (void) deserializer.next_field_name()!;
+            $default:
+              (void) deserializer.next_field_name()!;
 
-            $Typefrom($member.type)? next_value = deserialize_value{$member.type, $Typeof(deserializer)}(deserializer, $config);
-            if (catch e = next_value) {
-              io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
-              next_value!;
-              return false;
-            }
+              $Typefrom($member.type)? next_value = deserialize_value{$member.type, $Typeof(deserializer)}(deserializer, $config);
+              if (catch e = next_value) {
+                io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
+                next_value!;
+                return false;
+              }
 
-            value.$member = next_value;
+              value.$member = next_value;
 
-        $endswitch
+          $endswitch
+        $endif
       $else
         // skip the key
         (void) deserializer.next_field_name()!;
@@ -480,13 +497,15 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
             value = alloc::alloc(allocator, Output::inner);
-            value.init(allocator);
-
-            deserializer.slice_start()!;
-            while(deserializer.has_next_slice_item()!) {
-              value.push(deserialize{Output::inner.generic_args[0]}(deserializer)!);
-            }
-            deserializer.slice_end()!;
+            // value.init(allocator);
+            //
+            // deserializer.slice_start()!;
+            // while(deserializer.has_next_slice_item()!) {
+            //   value.push(deserialize{Output::inner.generic_args[0]}(deserializer)!);
+            // }
+            // deserializer.slice_end()!;
+            // return value;
+            *value = @deserialize_slice{Output::inner.generic_args[0]}(deserializer, allocator, true)!;
             return value;
 
           $default:
@@ -536,15 +555,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
     $case Output::is_generic(List):
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-      value.init(allocator);
-      defer catch value.free();
-
-      deserializer.slice_start()!;
-      while(deserializer.has_next_slice_item()!) {
-        value.push(deserialize{Output::generic_args[0]}(deserializer)!);
-      }
-      deserializer.slice_end()!;
-      return value;
+      return @deserialize_slice{Output::generic_args[0]}(deserializer, allocator, true)!;
 
     $case Output::is_generic(Maybe):
       if (deserializer.next_null()!) {
@@ -556,13 +567,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
     $case $defined(value.len) &&& $defined(value[0]) &&& Output != String:
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-      List{Output::inner} elements;
-      deserializer.slice_start()!;
-      while(deserializer.has_next_slice_item()!) {
-        elements.push(deserialize{Output::inner}(deserializer)!);
-      }
-      deserializer.slice_end()!;
-      return elements.to_array(allocator);
+      return @deserialize_slice{Output::inner}(deserializer, allocator, false);
 
     $default:
       return @deserialize_primitive_value(Output, deserializer)!;
@@ -570,6 +575,43 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
   $endswitch
 }
 
+macro @deserialize_slice(#des, #allocator, bool $is_list) <Output> @local {
+  #des.slice_start()!;
+
+  sz? len = @method_fallback{Deserializer}(#des, compute_slice_len, -1);
+  if (try len && len != -1) {
+    $if $is_list:
+      List{Output} arr;
+      arr.init(#allocator, initial_capacity: (usz) len);
+      for (sz i = 0; i < len; i++) {
+        arr.push(deserialize{Output}(#des))!;
+        #des.has_next_slice_item()!;
+      }
+    $else
+      Output[] arr = alloc::new_array(#allocator, Output, (usz)len);
+      for (sz i = 0; i < len; i++) {
+        arr[i] = deserialize{Output}(#des)!;
+        #des.has_next_slice_item()!;
+      }
+    $endif
+    #des.slice_end()!;
+    return arr;
+  } else {
+    List{Output} elements;
+    $if $is_list:
+      elements.init(#allocator);
+    $endif
+    while(#des.has_next_slice_item()!) {
+      elements.push(deserialize{Output}(#des)!);
+    }
+    #des.slice_end()!;
+    $if $is_list:
+      return elements;
+    $else
+      return elements.to_array(#allocator);
+    $endif
+  }
+}
 
 macro @deserialize_primitive_value($Type, des) @local {
   $switch $Type:
@@ -583,7 +625,7 @@ macro @deserialize_primitive_value($Type, des) @local {
             return des.next_char()!;
           }
           String s = des.next_string()!;
-          Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
+          Allocator allocator = utils::@method_fallback{Deserializer}(des, get_allocator, tmem);
           defer alloc::free(allocator, s);
           return s[0];
 
@@ -592,7 +634,7 @@ macro @deserialize_primitive_value($Type, des) @local {
 
         $default:
           String s = des.next_string()!;
-          Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
+          Allocator allocator = utils::@method_fallback{Deserializer}(des, get_allocator, tmem);
           defer alloc::free(allocator, s);
           return s[0];
       $endswitch

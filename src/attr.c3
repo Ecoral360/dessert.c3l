@@ -82,7 +82,9 @@ struct DFieldConfig {
   bool skip_if_empty;
   String rename;
   String[] aliases;
+
   String validator;
+
   FieldAttrs fmt;
   bool flatten;
 
@@ -94,6 +96,9 @@ struct DFieldConfig {
 
   <* This string will be expanded as the default value during deserialization *>
   String default_value;
+
+  <* Marks a field as required during deserialization *>
+  bool required;
 }
 
 struct DFieldCompleteConfig {
