@@ -1049,3 +1049,53 @@ fn void test_enum_rename_all() @test => @pool() {
   String lower_output = json::string_serialize(tmem, DessertKindLower.PEACH_COBBLER)!!;
   test::eq(lower_output, `"peach_cobbler"`);
 }
+
+// ── Manual serialize_<field> methods ─────────────────────────────────────────
+// A `serialize_<field>` method takes over emitting the value for that one field.
+// The derived serializer still writes the key and delimiters around it.
+
+$expand(derive(SManualField::name, dessert::serialize));
+struct SManualField {
+  String name;
+  int    secret;
+}
+// `secret` is emitted as a masked string instead of its numeric value.
+fn void? SManualField.serialize_secret(&self, Serializer ser) {
+  ser.serialize_string("***")!;
+}
+
+$expand(derive(SManualDerived::name, dessert::serialize));
+struct SManualDerived {
+  String first;
+  String last;
+  String full;
+}
+// A manual method can read the rest of `self` to build the emitted value; the
+// stored `full` field is ignored in favour of the computed one.
+fn String? SManualDerived.serialize_full(&self, Serializer ser) {
+  return string::tformat("%s %s", self.first, self.last);
+}
+
+fn void test_ser_manual_field_overrides_value() @test {
+  SManualField v = { .name = "alice", .secret = 42 };
+  String out = json::string_serialize(tmem, v)!!;
+  test::eq(out, `{"name":"alice","secret":"***"}`);
+}
+
+fn void test_ser_manual_field_uses_self() @test {
+  SManualDerived v = { .first = "Ada", .last = "Lovelace", .full = "ignored" };
+  String out = json::string_serialize(tmem, v)!!;
+  test::eq(out, `{"first":"Ada","last":"Lovelace","full":"Ada Lovelace"}`);
+}
+
+// The same manual method also feeds the JsonValue (tree) serializer, since it is
+// written against the `Serializer` interface rather than a concrete format.
+fn void test_ser_manual_field_via_tree() @test {
+  SManualField v = { .name = "bob", .secret = 7 };
+  JsonSerializer s = json::serializer();
+  JsonValue j = ser::serialize(&s, v)!!;
+  defer j.free();
+
+  assert(j.value.d.get("name")!!.value.s == "bob");
+  assert(j.value.d.get("secret")!!.value.s == "***");
+}

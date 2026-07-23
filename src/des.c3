@@ -340,7 +340,11 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
       $if !$config.skip:
         $if $defined(value.$eval(@sprintf("deserialize_%s", $member.name))) &&& $defined(value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)):
           (void) deserializer.next_field_name()!;
-          value.$member = value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)!;
+          $if $Typeof(value.$eval(@sprintf("deserialize_%s", $member.name)))::returns != void? :
+            value.$member = value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)!;
+          $else
+            value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)!;
+          $endif
         $else
           $switch:
             $case $member.type.kind == UNION &&& $config.tagged.inlined:

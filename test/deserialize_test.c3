@@ -1371,3 +1371,119 @@ fn void test_enum_rename_all() @test => @pool() {
   DessertKindLower lower = json::deserialize{DessertKindLower}(mem, `"peach_cobbler"`)!!;
   test::eq(lower, DessertKindLower.PEACH_COBBLER);
 }
+
+// ── required fields ──────────────────────────────────────────────────────────
+// A field marked `required` must be present in the input; otherwise
+// deserialization faults with MISSING_REQUIRED_FIELD.
+
+$expand(derive(DRequired::name, dessert::deserialize));
+struct DRequired {
+  String name @DFieldDes({ .required = true });
+  int    age;
+}
+
+// required combined with rename: the field must appear under its renamed key.
+$expand(derive(DRequiredRenamed::name, dessert::deserialize));
+struct DRequiredRenamed {
+  String token @DFieldDes({ .rename = "tok", .required = true });
+}
+
+fn void test_des_required_present() @test => @pool() {
+  const String JSON = `{"name": "bob", "age": 5}`;
+  DRequired v = des::deserialize{DRequired}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 5);
+}
+
+fn void test_des_required_missing_faults() @test => @pool() {
+  // "name" is required but absent → must fault.
+  const String JSON = `{"age": 5}`;
+  DRequired? v = des::deserialize{DRequired}(&&json::tdeserializer(JSON));
+  if (catch err = v) {
+    assert(err == des::MISSING_REQUIRED_FIELD);
+  } else {
+    assert(false); // must have faulted
+  }
+}
+
+fn void test_des_required_non_required_field_may_be_absent() @test => @pool() {
+  // only the required "name" is present; the optional "age" defaults to 0.
+  const String JSON = `{"name": "bob"}`;
+  DRequired v = des::deserialize{DRequired}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 0);
+}
+
+fn void test_des_required_renamed_present() @test => @pool() {
+  const String JSON = `{"tok": "abc"}`;
+  DRequiredRenamed v = des::deserialize{DRequiredRenamed}(&&json::tdeserializer(JSON))!!;
+  assert(v.token == "abc");
+}
+
+fn void test_des_required_renamed_original_key_faults() @test => @pool() {
+  // the required field is renamed to "tok"; supplying "token" leaves it missing.
+  const String JSON = `{"token": "abc"}`;
+  DRequiredRenamed? v = des::deserialize{DRequiredRenamed}(&&json::tdeserializer(JSON));
+  if (catch err = v) {
+    assert(err == des::MISSING_REQUIRED_FIELD);
+  } else {
+    assert(false); // must have faulted
+  }
+}
+
+// ── Manual deserialize_<field> methods ───────────────────────────────────────
+// A `deserialize_<field>` method takes over reading the value for that field and
+// returns the value to store. The derived deserializer still consumes the key.
+
+faultdef NEGATIVE_NOT_ALLOWED;
+
+$expand(derive(DManualTemp::name, dessert::deserialize));
+struct DManualTemp {
+  String city;
+  double celsius;
+}
+// The input carries Fahrenheit under "celsius"; convert it to Celsius on read.
+fn void? DManualTemp.deserialize_celsius(&self, Deserializer des) {
+  double f = des.next_double()!;
+  self.celsius = (f - 32.0) * 5.0 / 9.0;
+}
+// The input carries Fahrenheit under "celsius"; convert it to Celsius on read.
+fn String? DManualTemp.deserialize_city(&self, Deserializer des) {
+  return des.next_string()!;
+}
+
+$expand(derive(DManualGuard::name, dessert::deserialize));
+struct DManualGuard {
+  int amount;
+}
+// A manual reader may reject the value by returning a fault, which propagates.
+fn int? DManualGuard.deserialize_amount(&self, Deserializer des) {
+  double v = des.next_double()!;
+  if (v < 0) return NEGATIVE_NOT_ALLOWED~;
+  return (int) v;
+}
+
+fn void test_des_manual_field_transforms_value() @test => @pool() {
+  const String JSON = `{"city": "NYC", "celsius": 212}`;
+  DManualTemp v = des::deserialize{DManualTemp}(&&json::tdeserializer(JSON))!!;
+  assert(v.city == "NYC");
+  double diff = v.celsius - 100.0;
+  if (diff < 0) diff = -diff;
+  assert(diff < 1e-9);
+}
+
+fn void test_des_manual_field_ok() @test => @pool() {
+  const String JSON = `{"amount": 5}`;
+  DManualGuard v = des::deserialize{DManualGuard}(&&json::tdeserializer(JSON))!!;
+  assert(v.amount == 5);
+}
+
+fn void test_des_manual_field_fault_propagates() @test => @pool() {
+  const String JSON = `{"amount": -3}`;
+  DManualGuard? v = des::deserialize{DManualGuard}(&&json::tdeserializer(JSON));
+  if (catch err = v) {
+    assert(err == NEGATIVE_NOT_ALLOWED);
+  } else {
+    assert(false); // the manual reader must have faulted
+  }
+}

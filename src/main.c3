@@ -43,12 +43,12 @@ fn void? Settings.serialize_other_email(&self, Serializer ser) {
   ser.serialize_string(string::tformat("custom: %s", self.other_email))!;
 }
 
-fn String? Settings.deserialize_other_email(&self, Deserializer des) {
+fn void? Settings.deserialize_other_email(&self, Deserializer des) {
   String s = des.next_string()!;
   if (!s.contains("@")) {
     return INVALID_EMAIL~;
   }
-  return s;
+  self.other_email = s;
 }
 
 
