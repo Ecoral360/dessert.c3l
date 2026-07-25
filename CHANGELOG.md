@@ -2,6 +2,11 @@
 
 All notable changes to dessert are documented here.
 
+## 0.1.1
+
+- Added a `@DField({ array.skip_extra = true|false })` config to allow skipping extra values (default `false`)
+- Added support for arrays with exact size in deserialization
+
 ## 0.1.0
 
 - Changed the version naming to make it easier to follow, this version is 0.1.0 !

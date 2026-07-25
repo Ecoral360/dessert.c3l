@@ -67,9 +67,6 @@ interface Deserializer {
   <* @returns "`true` if the current sequence has another item to read, `false` once exhausted" *>
   fn bool? has_next_slice_item();
 
-  <* If present, will be used to preallocate the correct len for the array/slice *>
-  fn sz? compute_slice_len() @optional;
-
   <*
     Test for a null value.
     @returns "`true` if the next value is null - in which case it is **consumed** - or `false` if it is not null, in which case it **must not** be consumed and can still be read by another `next_*` method"
@@ -146,7 +143,7 @@ interface Deserializer {
 }
 
 faultdef VALIDATOR_ERROR;
-faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE, UNKNOWN_FIELD, INLINED_UNION_BEFORE_TAG, UNMAPPED_UNION_VARIANT, MISSING_REQUIRED_FIELD;
+faultdef DUPLICATED_KEY, INVALID_ENUM_VALUE, UNKNOWN_FIELD, INLINED_UNION_BEFORE_TAG, UNMAPPED_UNION_VARIANT, MISSING_REQUIRED_FIELD, TOO_MANY_ELEMENTS_IN_ARRAY;
 faultdef UNSUPPORTED_DATA_TYPE, UNSUPPORTED_ANY;
 
 // Should be treated as a protocol, don't derive it directly
@@ -509,7 +506,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             // }
             // deserializer.slice_end()!;
             // return value;
-            *value = @deserialize_slice{Output::inner.generic_args[0]}(deserializer, allocator, true)!;
+            *value = @deserialize_list{Output::inner.generic_args[0]}(deserializer, allocator)!;
             return value;
 
           $default:
@@ -559,7 +556,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
     $case Output::is_generic(List):
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-      return @deserialize_slice{Output::generic_args[0]}(deserializer, allocator, true)!;
+      return @deserialize_list{Output::generic_args[0]}(deserializer, allocator)!;
 
     $case Output::is_generic(Maybe):
       if (deserializer.next_null()!) {
@@ -568,10 +565,14 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
         return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value), Des}(deserializer, config)!);
       }
 
-    $case $defined(value.len) &&& $defined(value[0]) &&& Output != String:
+    $case Output::kind == ARRAY: //$defined(value.len) &&& $defined(value[0]) &&& Output != String:
+      Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
+      return @deserialize_slice{Output::inner}(deserializer, allocator, config, Output::len);
+
+    $case Output::kind == SLICE: //$defined(value.len) &&& $defined(value[0]) &&& Output != String:
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-      return @deserialize_slice{Output::inner}(deserializer, allocator, false);
+      return @deserialize_slice{Output::inner}(deserializer, allocator, config);
 
     $default:
       return @deserialize_primitive_value(Output, deserializer)!;
@@ -579,42 +580,47 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
   $endswitch
 }
 
-macro @deserialize_slice(#des, #allocator, bool $is_list) <Output> @local {
+macro @deserialize_list(#des, #allocator) <Output> @local {
   #des.slice_start()!;
 
-  sz? len = @method_fallback{Deserializer}(#des, compute_slice_len, -1);
-  if (try len && len != -1) {
-    $if $is_list:
-      List{Output} arr;
-      arr.init(#allocator, initial_capacity: (usz) len);
-      for (sz i = 0; i < len; i++) {
-        arr.push(deserialize{Output}(#des))!;
-        #des.has_next_slice_item()!;
-      }
-    $else
-      Output[] arr = alloc::new_array(#allocator, Output, (usz)len);
-      for (sz i = 0; i < len; i++) {
+  List{Output} elements;
+  elements.init(#allocator);
+  while(#des.has_next_slice_item()!) {
+    elements.push(deserialize{Output}(#des)!);
+  }
+  #des.slice_end()!;
+  return elements;
+}
+
+macro @deserialize_slice(#des, #allocator, #config, int $array_len = -1) <Output> @local {
+  #des.slice_start()!;
+
+  $if $array_len != -1:
+    Output[$array_len] arr;
+    sz i = 0;
+    while(#des.has_next_slice_item()!) {
+      if (i >= $array_len) {
+        if (#config.array.skip_extra) {
+          utils::@method_fallback{Deserializer}(#des, skip_next_value, @skip_next_value_fallback(#des))!;
+        } else {
+          return TOO_MANY_ELEMENTS_IN_ARRAY~;
+        }
+      } else {
         arr[i] = deserialize{Output}(#des)!;
-        #des.has_next_slice_item()!;
       }
-    $endif
+      i++;
+    }
     #des.slice_end()!;
     return arr;
-  } else {
+
+  $else
     List{Output} elements;
-    $if $is_list:
-      elements.init(#allocator);
-    $endif
     while(#des.has_next_slice_item()!) {
       elements.push(deserialize{Output}(#des)!);
     }
     #des.slice_end()!;
-    $if $is_list:
-      return elements;
-    $else
-      return elements.to_array(#allocator);
-    $endif
-  }
+    return elements.to_array(#allocator);
+  $endif
 }
 
 macro @deserialize_primitive_value($Type, des) @local {

@@ -77,6 +77,11 @@ struct DFieldUnionConfig {
   DFieldUnionUnmapped unmapped;
 }
 
+struct DFieldArrayConfig {
+  <* skip extra values passed the array length *>
+  bool skip_extra;
+}
+
 struct DFieldConfig {
   bool skip;
   bool skip_if_empty;
@@ -99,6 +104,9 @@ struct DFieldConfig {
 
   <* Marks a field as required during deserialization *>
   bool required;
+
+  <* array specific config options *>
+  DFieldArrayConfig array;
 }
 
 struct DFieldCompleteConfig {

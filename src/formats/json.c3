@@ -671,6 +671,19 @@ fn bool? JsonDeserializer.has_next_slice_item(&self) @dynamic {
   }
   return next != ']';
 }
+
+// fn sz? JsonDeserializer.compute_slice_len(&self) @dynamic {
+//   usz start = self.current;
+//   sz len = 0;
+//   while(self.has_next_slice_item()!) {
+//     self.skip_next_value()!;
+//     len++;
+//   }
+//   self.current = start;
+//
+//   return len;
+// }
+
 fn void? JsonDeserializer.slice_end(&self) @dynamic {
   self.skip_whitespace()!;
   if (self.next()! != ']') {
@@ -697,12 +710,12 @@ fn void JsonDeserializer.print_error(&self, String message) {
   io::eprintfn("At %d:%d: %s", line, col, message);
 }
 
-macro void? skip_next_string(JsonDeserializer* self, char $quote) @local {
-  self.next()!; // skip the first quote
+macro void skip_next_string(JsonDeserializer* self, char $quote) @local {
+  self.current++; // skip the first quote
   while LOOP: (true) {
-    switch (self.next()!) @jump {
+    switch (self.input[self.current++]) @jump {
       case $quote: break LOOP;
-      case '\\': self.next()!;
+      case '\\': self.current++;
       default:
     }
   }
@@ -714,36 +727,36 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
   bool jsonc = self.flavor == JSONC;
   switch {
     case next == '"':
-      skip_next_string(self, '"')!;
+      skip_next_string(self, '"');
       return;
 
     case next == '\'':
       if (!jsonc) return UNEXPECTED_CHARACTER~;
-      skip_next_string(self, '\'')!;
+      skip_next_string(self, '\'');
       return;
 
     case next == 't':
-      $foreach $v : "true": // skips 'true'
-        self.next()!;
-      $endforeach
-      return;
+      if (self.current + 4 <= self.input.len && self.input[self.current:4] == "true") {
+        self.current += 4;
+        return;
+      }
 
     case next == 'f':
-      $foreach $v : "false": // skips 'false'
-        self.next()!;
-      $endforeach
-      return;
+      if (self.current + 5 <= self.input.len && self.input[self.current:5] == "false") {
+        self.current += 5;
+        return;
+      }
 
     case next == 'n':
-      $foreach $v : "null": // skips 'null'
-        self.next()!;
-      $endforeach
-      return;
+      if (self.current + 4 <= self.input.len && self.input[self.current:4] == "null") {
+        self.current += 4;
+        return;
+      }
 
     case next == '{':
       self.struct_start("")!;
       while(self.has_next_field()!) {
-        String next_key = self.next_field_name()!;
+        self.next_field_name()!;
         self.skip_next_value()!;
       }
       self.struct_end("")!;
@@ -757,22 +770,28 @@ fn void? JsonDeserializer.skip_next_value(&self) @dynamic {
       self.slice_end()!;
       return;
 
-    case ascii::is_digit(next):
     case next == '-':
     case next == '+':
     case next == '.':
     case next == 'I':
     case next == 'N':
+      self.next()!;
+      nextcase;
+
+    case ascii::is_digit(next):
       // '+', '.', 'I' (Infinity) and 'N' (NaN) only start a number in JSONC.
       if (!jsonc && (next == '+' || next == '.' || next == 'I' || next == 'N')) {
         return UNEXPECTED_CHARACTER~;
       }
-      self.next_double()!;
+      char c = self.peek()!;
+      while(ascii::is_alnum(c) || c == '.' || c == '+' || c == '-') {
+        self.next()!;
+        c = self.peek()!;
+      }
       return;
   }
 
   return UNEXPECTED_CHARACTER~;
-
 }
 
 fn Object*? JsonDeserializer.next_any(&self) @dynamic {
@@ -793,8 +812,11 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return object::new_bool(b);
 
     case 'n':
-      (void)self.next_null() @inline!;
-      return object::new_null();
+      if (self.current + 4 <= self.input.len && self.input[self.current:4] == "null") {
+        self.current += 4;
+        return object::new_null();
+      }
+      return UNEXPECTED_CHARACTER~;
 
     case '{':
       Object* o = object::new_obj(self.allocator);
@@ -1105,33 +1127,64 @@ fn char? JsonDeserializer.next_char(&self) @dynamic {
 
 fn bool? JsonDeserializer.next_bool(&self) @dynamic {
   self.skip_whitespace()!;
-  char next = self.next()!;
-  switch (next) {
-    case 't':
-      $foreach $v : "rue": // skips 'rue'
-        self.next()!;
-      $endforeach
-      return true;
-    case 'f':
-      $foreach $v : "alse": // skips 'alse'
-        self.next()!;
-      $endforeach
-      return false;
-    default:
-      return INVALID_BOOLEAN~;
-  }
+  if (self.current + 4 <= self.input.len && self.input[self.current:4] == "true") {
+		self.current += 4;
+		return true;
+	}
+  if (self.current + 5 <= self.input.len && self.input[self.current:5] == "false") {
+		self.current += 5;
+		return false;
+	}
+
+  return INVALID_BOOLEAN~;
 }
 
 fn bool? JsonDeserializer.next_null(&self) @dynamic {
   self.skip_whitespace()!;
-  char next = self.peek()!;
-  switch (next) {
-    case 'n':
-      $foreach $v : "null":
-        self.next()!;
-      $endforeach
-      return true;
-    default:
-      return false;
-  }
+  if (self.current + 4 <= self.input.len && self.input[self.current:4] == "null") {
+		self.current += 4;
+		return true;
+	}
+
+  return false;
+}
+
+fn sz? scan_container(JsonDeserializer* des, bool count_elements, sz* out_last_comma) @private {
+	sz len = 1;
+	int depth = 0;
+	bool in_string = false;
+	bool escaped = false;
+
+	while (des.current < des.input.len) {
+		if (!in_string) {
+			des.skip_whitespace()!;
+			if (des.current >= des.input.len) break;
+		}
+		char c = des.input[des.current];
+		if (in_string) {
+			if (escaped) {
+				escaped = false;
+			} else if (c == '\\') {
+				escaped = true;
+			} else if (c == '"') {
+				in_string = false;
+			}
+		} else if (c == '"') {
+			in_string = true;
+		} else if (c == '[' || c == '{') {
+			depth++;
+		} else if (c == ']' || c == '}') {
+			depth--;
+			if (depth < 0) {
+				break;
+			}
+		} else if (c == ',' && depth == 0) {
+			if (count_elements) {
+				len++;
+				*out_last_comma = (sz) des.current;
+			}
+		}
+		des.current++;
+	}
+	return len;
 }

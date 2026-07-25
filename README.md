@@ -23,6 +23,7 @@ The library is built around two core interfaces:
 - Skip specific fields during serialization
 - Skip empty fields (slices, `Maybe`, pointers) via `skip_if_empty`
 - Conditionally skip fields via `skip_serializing_<field>` methods
+- Custom per-field encoding via `serialize_<field>` methods
 - Rename fields for the output
 - Bulk field rename via `rename_all` case conventions
 - Validate field values before serialization
@@ -37,6 +38,10 @@ The library is built around two core interfaces:
 - Enum fallback variant for unknown values via `.fallback`
 - Tagged union deserialization (named, anonymous, and inlined patterns)
 - Field renaming support (different name in the format and in C3)
+- Custom per-field decoding via `deserialize_<field>` methods
+- Required fields via `.required` (error when a field is missing)
+- Default field values via `.default_value` when a field is missing
+- Fixed-size array overflow control via `.array.skip_extra` (discard extras vs. error)
 - Duplicate key detection
 - Unknown field skipping (or rejection via `deny_unknown_fields`)
 - Deserialize arbitrary data into `Object` fields
@@ -82,7 +87,7 @@ struct Point {
     int x @DFieldSer({ .fmt = { "xml:attribute" } });
     int y @DFieldSer({ .fmt = { "xml:attribute" } });
 }
-// { .x = 1, .y = 2 } → <point x="1" y="2"></point>
+// { .x = 1, .y = 2 } -> <point x="1" y="2"></point>
 ```
 
 ### Dotenv (`.env`)
@@ -138,6 +143,8 @@ struct Person {
 | `.flatten`       | `bool`                   | Flatten a nested struct's fields directly into the parent object |
 | `.tagged`        | `DFieldUnionConfig`      | Tagged union configuration (see Union attributes below)          |
 | `.default_value` | `String`                 | Expression used as the field's value during deserialization when the field is missing from the input |
+| `.required`      | `bool`                   | Fault with `MISSING_REQUIRED_FIELD` during deserialization if the field is absent from the input |
+| `.array`         | `DFieldArrayConfig`      | Fixed-size array options; `.array.skip_extra` (`bool`) discards input items beyond the array's capacity instead of faulting |
 
 `.default_value` is a C3 expression (as a string) that is spliced in when a field is absent from the input, instead of leaving it zero-initialized:
 
@@ -148,6 +155,31 @@ struct Settings {
 }
 // deserializing "{}" yields { .host = "localhost", .port = 8080 }
 ```
+
+`.required` is the deserialization-time counterpart: an absent field is an error instead of a zero value. It composes with `.rename` (the field must appear under its renamed key):
+
+```c3
+struct Credentials {
+    String token @DFieldDes({ .rename = "tok", .required = true });
+}
+// deserializing "{}" or {"token": "..."} -> MISSING_REQUIRED_FIELD
+// deserializing {"tok": "abc"}           -> { .token = "abc" }
+```
+
+**Fixed-size arrays (`.array`):**
+
+A `T[N]` field has a fixed capacity. During deserialization, an input sequence with **fewer** items than `N` leaves the trailing elements zero-initialized (not an error). An input with **more** than `N` items faults with `TOO_MANY_ELEMENTS_IN_ARRAY` by default; set `.array.skip_extra` to keep the first `N` items and discard the overflow instead:
+
+```c3
+struct Sample {
+    int[3] scores;                                       // strict
+    int[3] top @DFieldDes({ .array.skip_extra = true }); // lenient
+}
+// {"scores": [1,2],       "top": [1,2,3,4,5]} -> { .scores = {1,2,0}, .top = {1,2,3} }
+// {"scores": [1,2,3,4,5], "top": [1,2,3]}     -> TOO_MANY_ELEMENTS_IN_ARRAY
+```
+
+(Slices and `List` fields grow to fit the input, so `.array` only applies to fixed-size arrays.)
 
 **Conditional skip methods:**
 
@@ -160,17 +192,72 @@ struct Person {
 }
 
 fn bool Person.skip_serializing_age(&self) {
-    return self.age == 0; // don't serialize age when it's 0
+    return self.age < 10; // don't serialize age when it's less than 10
 }
 ```
+
+**Custom per-field serialize / deserialize methods:**
+
+To take control of a single field's encoding, give the struct a `serialize_<field>` and/or `deserialize_<field>` method. dessert still writes and reads the field's key and delimiters - the method only handles the *value*. Both methods receive the format-agnostic `Serializer` / `Deserializer` interface, so the same struct works with every format, and their **return type selects the protocol**.
+
+```c3
+struct User {
+    String   name;
+    String   password;
+    double   temperature;
+    String[] tags;
+}
+```
+
+**`serialize_<field>(&self, Serializer ser)`** - two modes, chosen by the return type:
+
+1. **Return a value (`Type?`)** - dessert serializes the returned value the normal way. Use this to transform or substitute the value while letting the format handle the encoding.
+2. **Return `void?`** - dessert assumes you emitted the value yourself through `ser`.
+
+```c3
+// Mode 1: return a value; dessert serializes it normally.
+fn String? User.serialize_password(&self, Serializer ser) {
+    return "***"; // never leak the real value; encoded as a normal string
+}
+
+// Mode 2: return void; you drive the serializer.
+fn void? User.serialize_tags(&self, Serializer ser) {
+    ser.serialize_slice_start(self.tags.len)!;
+    foreach (i, t : self.tags) {
+        ser.serialize_string(t)!;
+        ser.serialize_slice_item_end(i)!;
+    }
+    ser.serialize_slice_end(self.tags.len)!;
+}
+```
+
+**`deserialize_<field>(&self, Deserializer des)`** - the mirror image:
+
+1. **Return a value (`Type?`)** - dessert assigns the returned value to the field. Use this to read then transform the value.
+2. **Return `void?`** - dessert assumes you already assigned the field yourself (via `&self`).
+
+```c3
+// Mode 1: return the value; dessert assigns it to the field.
+fn double? User.deserialize_temperature(&self, Deserializer des) {
+    double fahrenheit = des.next_double()!;
+    return (fahrenheit - 32.0) * 5.0 / 9.0; // stored as Celsius
+}
+
+// Mode 2: return void; assign the field yourself.
+fn void? User.deserialize_name(&self, Deserializer des) {
+    self.name = des.next_string()!; // write straight into the field via &self
+}
+```
+
+The methods can read the rest of `self`, and returning a fault (e.g. `return INVALID_VALUE~;`) aborts (de)serialization and propagates the error to the caller.
 
 **Inspecting field configuration (for format authors and macros):**
 
 The config attached to a field is reachable at compile time so custom formats and generic
 code can react to it:
 
-- `dessert::@get_fieldconfig($member)` — returns a `DFieldCompleteConfig { DFieldConfig ser; DFieldConfig des; }` for a reflected struct member, merging its `@DField` / `@DFieldSer` / `@DFieldDes` tags.
-- `FieldAttrs.@get(needle)` (compile-time) / `FieldAttrs.get(needle)` (runtime) — read a single `.fmt` entry, returning `"true"` for a bare `key` or the right-hand side of a `key=value` entry. This is how the XML serializer detects `xml:attribute`.
+- `dessert::@get_fieldconfig($member)` - returns a `DFieldCompleteConfig { DFieldConfig ser; DFieldConfig des; }` for a reflected struct member, merging its `@DField` / `@DFieldSer` / `@DFieldDes` tags.
+- `FieldAttrs.@get(needle)` (compile-time) / `FieldAttrs.get(needle)` (runtime) - read a single `.fmt` entry, returning `"true"` for a bare `key` or the right-hand side of a `key=value` entry. This is how the XML serializer detects `xml:attribute`.
 
 ```c3
 $foreach $member : MyType.members:
@@ -209,14 +296,14 @@ enum Color @DEnum({ .as = DESCRIPTION }) {
 | `.fallback` | `String`      | Name of the variant to use when the JSON value doesn't match any known variant (deserialization only). If not set, `INVALID_ENUM_VALUE` is raised instead. |
 
 ```c3
-// Unknown JSON variant → UNKNOWN instead of raising INVALID_ENUM_VALUE
+// Unknown JSON variant -> UNKNOWN instead of raising INVALID_ENUM_VALUE
 enum Status @DEnumDes({ .fallback = "UNKNOWN" }) {
     ACTIVE,
     INACTIVE,
     UNKNOWN,
 }
 
-// Unknown field value → NONE instead of raising INVALID_ENUM_VALUE
+// Unknown field value -> NONE instead of raising INVALID_ENUM_VALUE
 enum Priority : (String code) @DEnumDes({ .as = FIELD, .field = "code", .fallback = "NONE" }) {
     HIGH   { "high"   },
     MEDIUM { "medium" },
@@ -321,8 +408,8 @@ struct Message {
     String text;
   }
 }
-// kind=0 → {"kind":0,"payload":{"count":42}}
-// kind=2 → {"kind":2,"payload":{"text":"hi"}}
+// kind=0 -> {"kind":0,"payload":{"count":42}}
+// kind=2 -> {"kind":2,"payload":{"text":"hi"}}
 ```
 
 *Pattern B - anonymous union field (active member flattened into parent):*
@@ -337,8 +424,8 @@ struct Message {
     String text;
   }
 }
-// kind=0 → {"kind":0,"count":42}
-// kind=2 → {"kind":2,"text":"hi"}
+// kind=0 -> {"kind":0,"count":42}
+// kind=2 -> {"kind":2,"text":"hi"}
 ```
 
 *Pattern C - named union field with `.inlined = true` (active value inlined, no wrapping object):*
@@ -355,8 +442,8 @@ struct Response {
   int     tag;
   Variant val @DField({ .tagged = { .by = "tag", .inlined = true } });
 }
-// tag=0 → {"tag":0,"val":42}
-// tag=1 → {"tag":1,"val":{"x":1,"y":2}}
+// tag=0 -> {"tag":0,"val":42}
+// tag=1 -> {"tag":1,"val":{"x":1,"y":2}}
 ```
 
 *Pattern D - enum tag with `match.by = DESCRIPTION` (match by enum value name):*
@@ -653,6 +740,8 @@ Dessert uses C3's fault system for error handling:
 | `UNKNOWN_FIELD`          | `des`          | Unknown field encountered when `deny_unknown_fields` is set |
 | `INLINED_UNION_BEFORE_TAG`  | `des`        | Inlined union appeared before its tag field in the input |
 | `UNMAPPED_UNION_VARIANT`    | `ser` / `des`| Tag value matched no union member                        |
+| `MISSING_REQUIRED_FIELD`    | `des`        | A field marked `.required` was absent from the input     |
+| `TOO_MANY_ELEMENTS_IN_ARRAY`| `des`        | Input sequence exceeded a fixed-size array's capacity (and `.array.skip_extra` was not set) |
 | `INVALID_CSV_TYPE`       | `dessert::format::csv` | Unsupported value type during CSV serialization  |
 | `XML_ATTRIBUTE_AFTER_FIELD` | `dessert::format::xml` | An `xml:attribute` field appeared after a non-attribute field |
 | `XML_SLICE_IN_ATTRIBUTE`    | `dessert::format::xml` | A slice/array was used where an XML attribute value is expected |

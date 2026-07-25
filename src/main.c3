@@ -37,7 +37,15 @@ struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
 
   Email email @DField({ .required = true });
   String other_email;
+
 }
+
+$expand(derive(FixedArrayWrap::name, dessert));
+struct FixedArrayWrap
+{
+    int[3] data @DField({ .array.skip_extra = true });
+}
+
 
 fn void? Settings.serialize_other_email(&self, Serializer ser) {
   ser.serialize_string(string::tformat("custom: %s", self.other_email))!;
@@ -54,6 +62,10 @@ fn void? Settings.deserialize_other_email(&self, Deserializer des) {
 
 fn void main() {
   Settings settings = dotenv::tload{Settings}()!!;
+
+  FixedArrayWrap f = json::tdeserialize{FixedArrayWrap}(`{"data": [10, 20, 30, 40]}`)!!;
+  io::printn(json::tserialize(f).to_pretty_string())!!;
+
 
   io::printn(json::tserialize(settings).to_pretty_string())!!;
 }

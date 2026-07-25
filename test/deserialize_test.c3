@@ -1487,3 +1487,94 @@ fn void test_des_manual_field_fault_propagates() @test => @pool() {
     assert(false); // the manual reader must have faulted
   }
 }
+
+// ── Fixed-size arrays: extra elements ────────────────────────────────────────
+// A `T[N]` field has a fixed capacity. When the input sequence carries more than
+// N items, the default is to fault (TOO_MANY_ELEMENTS_IN_ARRAY); opting into
+// `.array.skip_extra` discards the overflow instead.
+
+$expand(derive(DFixedArr::name, dessert::deserialize));
+struct DFixedArr {
+  int[3] scores;
+}
+
+$expand(derive(DFixedArrSkip::name, dessert::deserialize));
+struct DFixedArrSkip {
+  int[3] scores @DFieldDes({ .array = { .skip_extra = true } });
+}
+
+fn void test_des_array_exact_fit() @test => @pool() {
+  const String JSON = `{"scores": [1, 2, 3]}`;
+  DFixedArr v = des::deserialize{DFixedArr}(&&json::tdeserializer(JSON))!!;
+  assert(v.scores[0] == 1);
+  assert(v.scores[1] == 2);
+  assert(v.scores[2] == 3);
+}
+
+fn void test_des_array_fewer_than_capacity() @test => @pool() {
+  // Missing trailing elements stay zero-initialized; this is not an error.
+  const String JSON = `{"scores": [7, 8]}`;
+  DFixedArr v = des::deserialize{DFixedArr}(&&json::tdeserializer(JSON))!!;
+  assert(v.scores[0] == 7);
+  assert(v.scores[1] == 8);
+  assert(v.scores[2] == 0);
+}
+
+fn void test_des_array_extra_without_skip_faults() @test => @pool() {
+  // 5 items into an int[3] and skip_extra is off → must fault.
+  const String JSON = `{"scores": [1, 2, 3, 4, 5]}`;
+  DFixedArr? v = des::deserialize{DFixedArr}(&&json::tdeserializer(JSON));
+  if (catch err = v) {
+    assert(err == des::TOO_MANY_ELEMENTS_IN_ARRAY);
+  } else {
+    assert(false); // must have faulted
+  }
+}
+
+fn void test_des_array_extra_with_skip_kept_prefix() @test => @pool() {
+  // Same overflow, but skip_extra keeps the first 3 and discards the rest.
+  const String JSON = `{"scores": [1, 2, 3, 4, 5]}`;
+  DFixedArrSkip v = des::deserialize{DFixedArrSkip}(&&json::tdeserializer(JSON))!!;
+  assert(v.scores[0] == 1);
+  assert(v.scores[1] == 2);
+  assert(v.scores[2] == 3);
+}
+
+fn void test_des_array_skip_extra_exact_fit_unaffected() @test => @pool() {
+  // skip_extra must not disturb the normal exact-fit case.
+  const String JSON = `{"scores": [9, 9, 9]}`;
+  DFixedArrSkip v = des::deserialize{DFixedArrSkip}(&&json::tdeserializer(JSON))!!;
+  assert(v.scores[0] == 9);
+  assert(v.scores[1] == 9);
+  assert(v.scores[2] == 9);
+}
+
+// ── Manual deserialize_<field>: void? self-assign mode ───────────────────────
+// When the method returns `void?`, dessert does NOT assign the field for you;
+// the method must write it through `&self`. (The `Type?`-returning mode, where
+// dessert assigns the returned value, is covered by DManualTemp/DManualGuard.)
+
+$expand(derive(DManualSelfAssign::name, dessert::deserialize));
+struct DManualSelfAssign {
+  String tag;
+  int    count;
+}
+// Reads the value and assigns the field itself; returns void.
+fn void? DManualSelfAssign.deserialize_count(&self, Deserializer des) {
+  double v = des.next_double()!;
+  self.count = (int) v + 100; // written via &self, nothing returned
+}
+
+fn void test_des_manual_field_void_self_assign() @test => @pool() {
+  const String JSON = `{"tag": "x", "count": 5}`;
+  DManualSelfAssign v = des::deserialize{DManualSelfAssign}(&&json::tdeserializer(JSON))!!;
+  assert(v.tag == "x");        // ordinary field still deserialized normally
+  assert(v.count == 105);      // manual void? method assigned self.count
+}
+
+fn void test_des_manual_field_void_fault_propagates() @test => @pool() {
+  // A fault from the void? method still aborts deserialization.
+  const String JSON = `{"tag": "x", "count": "not a number"}`;
+  DManualSelfAssign? v = des::deserialize{DManualSelfAssign}(&&json::tdeserializer(JSON));
+  assert(@catch(v)); // next_double faults on a string value
+}
