@@ -441,6 +441,23 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
         serializer.struct_end($type.name)!;
       $endif
 
+    $case $defined(value.serialize) &&& $defined(value.serialize(serializer, (DFieldConfig) {})):
+      var $type = $reflect(value).type;
+      $if $type.kind == POINTER:
+        $type = $Typeof(value)::inner;
+        if (value == null) {
+          serializer.serialize_null()!;
+          return;
+        }
+      $endif
+      $if $type.kind == STRUCT &&& !$config.flatten:
+        serializer.struct_start($type.name)!;
+      $endif
+      value.serialize(serializer, $config)!;
+      $if $type.kind == STRUCT &&& !$config.flatten:
+        serializer.struct_end($type.name)!;
+      $endif
+
     $case $Typeof(value)::kind == POINTER:
       if (value == null) {
         serializer.serialize_null()!;
