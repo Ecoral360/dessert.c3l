@@ -3,53 +3,52 @@ import std;
 import dessert;
 import json;
 import csv;
-import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive(SPoint::name, dessert));
+$expand(dessert::@derive(SPoint));
 struct SPoint {
   int x;
   int y;
 }
 
-$expand(derive(SBox::name, dessert));
+$expand(dessert::@derive(SBox));
 struct SBox {
   String label;
   SPoint center;
 }
 
-$expand(derive(SWithPointer::name, dessert::serialize));
+$expand(dessert::@derive(SWithPointer, serialize));
 struct SWithPointer {
   String name;
   SPoint* extra;
 }
 
-$expand(derive(SWithArray::name, dessert::serialize));
+$expand(dessert::@derive(SWithArray, serialize));
 struct SWithArray {
   String tag;
   SPoint[] items;
 }
 
-$expand(derive(SSkipField::name, dessert::serialize));
+$expand(dessert::@derive(SSkipField, serialize));
 struct SSkipField {
   String kept;
   String secret   @DField({ .skip = true });
   int    internal @DField({ .skip = true });
 }
-$expand(derive(SRenamedField::name, dessert::serialize));
+$expand(dessert::@derive(SRenamedField, serialize));
 struct SRenamedField {
   String original @DField({ .rename = "alias" });
   int    count    @DField({ .rename = "num" });
 }
-$expand(derive(SSkipIfEmpty::name, dessert::serialize));
+$expand(dessert::@derive(SSkipIfEmpty, serialize));
 struct SSkipIfEmpty {
   String  always;
   String  maybe_str @DField({ .skip_if_empty = true });
   SPoint* maybe_ptr @DField({ .skip_if_empty = true });
   SPoint[] maybe_arr @DField({ .skip_if_empty = true });
 }
-$expand(derive(SConditional::name, dessert::serialize));
+$expand(dessert::@derive(SConditional, serialize));
 struct SConditional {
   String name;
   int    score;
@@ -57,7 +56,7 @@ struct SConditional {
 fn bool SConditional.skip_serializing_score(&self) => self.score < 0;
 
 // Default: serialize enum variants by name
-$expand(derive(SDirection::name, dessert::serialize));
+$expand(dessert::@derive(SDirection, serialize));
 enum SDirection {
   NORTH,
   SOUTH,
@@ -65,31 +64,31 @@ enum SDirection {
   WEST,
 }
 // Serialize enum variants by ordinal (0, 1, 2, ...)
-$expand(derive(SRank::name, dessert::serialize));
+$expand(dessert::@derive(SRank, serialize));
 enum SRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
 }
 // Serialize enum via an associated field value
-$expand(derive(SColor::name, dessert::serialize));
+$expand(dessert::@derive(SColor, serialize));
 enum SColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },
 }
-$expand(derive(SWithMaybe::name, dessert::serialize));
+$expand(dessert::@derive(SWithMaybe, serialize));
 struct SWithMaybe {
   String    name;
   Maybe{int} opt;
 }
-$expand(derive(SWithValidator::name, dessert::serialize));
+$expand(dessert::@derive(SWithValidator, serialize));
 struct SWithValidator {
   String name @DField({ .validator = "validate_name" });
 }
 fn bool SWithValidator.validate_name(&self, String name) => name.len > 0;
 
-$expand(derive(SWeatherRow::name, dessert::serialize));
+$expand(dessert::@derive(SWeatherRow, serialize));
 struct SWeatherRow {
   String city;
   double temp;
@@ -455,7 +454,7 @@ fn void test_ser_csv_values() @test {
 
 // ── Tests: inline sub-struct ──────────────────────────────────────────────────
 
-$expand(derive(SWithInlineSub::name, dessert::serialize));
+$expand(dessert::@derive(SWithInlineSub, serialize));
 struct SWithInlineSub {
   int id;
   struct pos { 
@@ -463,7 +462,7 @@ struct SWithInlineSub {
     int y; 
   }
 }
-$expand(derive(SWithFlatSub::name, dessert::serialize));
+$expand(dessert::@derive(SWithFlatSub, serialize));
 struct SWithFlatSub {
   int id;
   struct pos @DField({ .flatten = true }) { 
@@ -504,7 +503,7 @@ union SUVariant {
   double f;
 }
 
-$expand(derive(STaggedUnion::name, dessert::serialize));
+$expand(dessert::@derive(STaggedUnion, serialize));
 struct STaggedUnion {
   int       tag;
   SUVariant val @DField({ .tagged = { .by = "tag", .inlined = true } });
@@ -532,7 +531,7 @@ fn void test_ser_union_negative_value() @test {
 
 // ── Tests: @DField tagged union (named) ──────────────────────────────────────
 
-$expand(derive(SDUnionNamed::name, dessert::serialize));
+$expand(dessert::@derive(SDUnionNamed, serialize));
 struct SDUnionNamed {
   int kind;
   union p @DField({ .tagged = { .by = "kind" } }) {
@@ -598,7 +597,7 @@ fn void test_ser_dunion_named_only_active_member() @test {
 
 // ── Tests: @DField anonymous union (flattened) ────────────────────────────────
 
-$expand(derive(SDUnionAnon::name, dessert::serialize));
+$expand(dessert::@derive(SDUnionAnon, serialize));
 struct SDUnionAnon {
   int kind;
   union @DField({ .tagged = { .by = "kind" } }) {
@@ -637,7 +636,7 @@ fn void test_ser_dunion_anon_second() @test {
 
 // ── Tests: rename_all = CAMEL_CASE ───────────────────────────────────────────
 
-$expand(derive(SCamelCase::name, dessert::serialize));
+$expand(dessert::@derive(SCamelCase, serialize));
 struct SCamelCase @DStructSer({ .rename_all = CAMEL_CASE }) {
   String first_name;
   String last_name;
@@ -664,10 +663,10 @@ fn void test_ser_camel_case() @test {
 // Tag enum serializes as its description string (default). Named inlined union:
 // JSON key = union field name ("payload"), value = active member value directly.
 
-$expand(derive(SMBOrdinalTag::name, dessert));
+$expand(dessert::@derive(SMBOrdinalTag));
 enum SMBOrdinalTag { ORD_FIRST, ORD_SECOND, ORD_THIRD }
 
-$expand(derive(SMatchByOrdinal::name, dessert::serialize));
+$expand(dessert::@derive(SMatchByOrdinal, serialize));
 struct SMatchByOrdinal {
   SMBOrdinalTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = ORDINAL } } }) {
@@ -718,10 +717,10 @@ fn void test_ser_match_by_ordinal_third() @test {
 // DESCRIPTION: switch on enum VALUE. Union member names uppercased must match
 // enum value names. E.g. member "desc_a" → @str_to_upper → "DESC_A" → case DESC_A.
 
-$expand(derive(SMBDescTag::name, dessert));
+$expand(dessert::@derive(SMBDescTag));
 enum SMBDescTag { DESC_A, DESC_B, DESC_C }
 
-$expand(derive(SMatchByDesc::name, dessert::serialize));
+$expand(dessert::@derive(SMatchByDesc, serialize));
 struct SMatchByDesc {
   SMBDescTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = DESCRIPTION } } }) {
@@ -772,7 +771,7 @@ fn void test_ser_match_by_desc_third() @test {
 // FIELD: switch on enum.variant (String). Value must equal union member name exactly.
 // E.g. FLD_A { "fld_a" } → kind.variant == "fld_a" → case "fld_a" → member fld_a.
 
-$expand(derive(SMBFieldTag::name, dessert));
+$expand(dessert::@derive(SMBFieldTag));
 enum SMBFieldTag : (String variant) {
   FLD_A { "fld_a" },
   FLD_B { "fld_b" },
@@ -780,12 +779,12 @@ enum SMBFieldTag : (String variant) {
   FLD_D { "fld_d" },
 }
 
-$expand(derive(SubS::name, dessert));
+$expand(dessert::@derive(SubS));
 struct SubS {
   String s;
 }
 
-$expand(derive(SMatchByField::name, dessert::serialize));
+$expand(dessert::@derive(SMatchByField, serialize));
 struct SMatchByField {
   SMBFieldTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "variant" } } }) {
@@ -850,7 +849,7 @@ fn void test_ser_match_by_field_forth_string() @test {
 // EMPTY_STRUCT → serialize payload as {}. NULL → null. ZERO → 0.
 
 // Default (no unmapped.as = ERROR): out-of-range kind raises UNMAPPED_UNION_VARIANT
-$expand(derive(SUnmappedError::name, dessert::serialize));
+$expand(dessert::@derive(SUnmappedError, serialize));
 struct SUnmappedError {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true } }) {
@@ -871,7 +870,7 @@ fn void test_ser_unmapped_as_error() @test {
 }
 
 // unmapped.as = EMPTY_STRUCT: out-of-range kind → payload serialized as {}
-$expand(derive(SUnmappedEmptyStruct::name, dessert::serialize));
+$expand(dessert::@derive(SUnmappedEmptyStruct, serialize));
 struct SUnmappedEmptyStruct {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = EMPTY_STRUCT } } }) {
@@ -890,7 +889,7 @@ fn void test_ser_unmapped_as_empty_struct() @test {
 }
 
 // unmapped.as = NULL: out-of-range kind → payload serialized as null
-$expand(derive(SUnmappedNull::name, dessert::serialize));
+$expand(dessert::@derive(SUnmappedNull, serialize));
 struct SUnmappedNull {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = NULL } } }) {
@@ -909,7 +908,7 @@ fn void test_ser_unmapped_as_null() @test {
 }
 
 // unmapped.as = ZERO: out-of-range kind → payload serialized as 0
-$expand(derive(SUnmappedZero::name, dessert::serialize));
+$expand(dessert::@derive(SUnmappedZero, serialize));
 struct SUnmappedZero {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = ZERO } } }) {
@@ -946,7 +945,7 @@ fn void test_ser_csv_to_string_has_header() @test {
   if (catch out.index_of("Toulouse")) { assert(false); }
 }
 
-$expand(derive(FooWithHashMap::name, dessert::serialize));
+$expand(dessert::@derive(FooWithHashMap, serialize));
 struct FooWithHashMap {
   HashMap{String, int} found;
   HashMap{String, SWeatherRow} cities @DField({ .flatten = true });
@@ -968,56 +967,56 @@ fn void test_foo_with_hashmap() @test {
 
 }
 
-$expand(derive(DessertKindKebab::name, dessert));
+$expand(dessert::@derive(DessertKindKebab));
 enum DessertKindKebab @DEnum({ .rename_all = KEBAB_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindUpper::name, dessert));
+$expand(dessert::@derive(DessertKindUpper));
 enum DessertKindUpper @DEnum({ .rename_all = UPPER_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindVerbatim::name, dessert));
+$expand(dessert::@derive(DessertKindVerbatim));
 enum DessertKindVerbatim @DEnum({ .rename_all = VERBATIM }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindCamel::name, dessert));
+$expand(dessert::@derive(DessertKindCamel));
 enum DessertKindCamel @DEnum({ .rename_all = CAMEL_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindPascal::name, dessert));
+$expand(dessert::@derive(DessertKindPascal));
 enum DessertKindPascal @DEnum({ .rename_all = PASCAL_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindConstant::name, dessert));
+$expand(dessert::@derive(DessertKindConstant));
 enum DessertKindConstant @DEnum({ .rename_all = CONSTANT_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindSnake::name, dessert));
+$expand(dessert::@derive(DessertKindSnake));
 enum DessertKindSnake @DEnum({ .rename_all = SNAKE_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindLower::name, dessert));
+$expand(dessert::@derive(DessertKindLower));
 enum DessertKindLower @DEnum({ .rename_all = LOWER_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
@@ -1054,7 +1053,7 @@ fn void test_enum_rename_all() @test => @pool() {
 // A `serialize_<field>` method takes over emitting the value for that one field.
 // The derived serializer still writes the key and delimiters around it.
 
-$expand(derive(SManualField::name, dessert::serialize));
+$expand(dessert::@derive(SManualField, serialize));
 struct SManualField {
   String name;
   int    secret;
@@ -1064,7 +1063,7 @@ fn void? SManualField.serialize_secret(&self, Serializer ser) {
   ser.serialize_string("***")!;
 }
 
-$expand(derive(SManualDerived::name, dessert::serialize));
+$expand(dessert::@derive(SManualDerived, serialize));
 struct SManualDerived {
   String first;
   String last;

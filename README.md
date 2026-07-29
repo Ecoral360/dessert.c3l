@@ -274,7 +274,13 @@ fn void? MyType.serialize(&self, Serializer ser, DFieldConfig config) { ... }
 fn void? MyType.deserialize(&self, Deserializer des, DFieldConfig config) { ... }
 ```
 
-The `dessert::values` module ships experimental wrappers built on this - an `Email` type and range-checked `Number{Backing, MIN, MAX}` newtypes. **Still experimental**; the API may change.
+The `dessert::values` module ships experimental wrappers built on this: range-checked `Number{Backing, MIN, MAX}` newtypes and a generic `Validated{Type}` wrapper. `Validated{String}` reads `min_length` / `max_length` from the field's `.fmt` and raises a validation fault when the decoded value is out of bounds:
+
+```c3
+Validated{String} url @DField({ .fmt = { `max_length=5` } });
+```
+
+**Still experimental**; the API may change.
 
 **Inspecting field configuration (for format authors and macros):**
 
@@ -424,7 +430,7 @@ Use `@DField({ .tagged = { .by = "field" } })` on a union member to enable tagge
 *Pattern A - named union field, not inlined (active member wrapped in a nested object):*
 
 ```c3
-$expand(derive(Message::name, dessert));
+$expand(dessert::@derive(Message));
 struct Message {
   int kind;
   union payload @DField({ .tagged.by = "kind" }) {
@@ -440,7 +446,7 @@ struct Message {
 *Pattern B - anonymous union field (active member flattened into parent):*
 
 ```c3
-$expand(derive(Message::name, dessert));
+$expand(dessert::@derive(Message));
 struct Message {
   int kind;
   union @DField({ .tagged.by = "kind" }) {
@@ -462,7 +468,7 @@ union Variant {
   String label;
 }
 
-$expand(derive(Response::name, dessert));
+$expand(dessert::@derive(Response));
 struct Response {
   int     tag;
   Variant val @DField({ .tagged = { .by = "tag", .inlined = true } });
@@ -474,10 +480,10 @@ struct Response {
 *Pattern D - enum tag with `match.by = DESCRIPTION` (match by enum value name):*
 
 ```c3
-$expand(derive(Shape::name, dessert));
+$expand(dessert::@derive(Shape));
 enum Shape { CIRCLE, SQUARE, TRIANGLE }
 
-$expand(derive(Drawing::name, dessert));
+$expand(dessert::@derive(Drawing));
 struct Drawing {
   Shape kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match.by = DESCRIPTION } }) {
@@ -491,13 +497,13 @@ struct Drawing {
 *Pattern E - enum tag with `match.by = FIELD` (match by enum associated String field):*
 
 ```c3
-$expand(derive(Format::name, dessert));
+$expand(dessert::@derive(Format));
 enum Format : (String mime) {
   JSON_FMT { "json_fmt" },
   CSV_FMT  { "csv_fmt"  },
 }
 
-$expand(derive(Output::name, dessert));
+$expand(dessert::@derive(Output));
 struct Output {
   Format kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "mime" } } }) {
@@ -510,7 +516,7 @@ struct Output {
 *Using `unmapped.as` to handle unknown tag values gracefully:*
 
 ```c3
-$expand(derive(Request::name, dessert));
+$expand(dessert::@derive(Request));
 struct Request {
   int kind;
   // Out-of-range kind consumed as null instead of raising a fault
@@ -543,23 +549,22 @@ Get started with dessert:
 
 ### 1. Define Your Struct
 
-Use `$expand(derive(...))` to automatically generate `serialize` and `deserialize` methods:
+Use `$expand(dessert::@derive(...))` to automatically generate `serialize` and `deserialize` methods:
 
 ```c3
-import derive;
 
-$expand(derive(Animal::name, dessert));
+$expand(dessert::@derive(Animal));
 struct Animal {
     String name;
     String specie;
 }
 ```
 
-`dessert` derives both methods. Use `dessert::serialize` or `dessert::deserialize` to derive only one:
+With no second argument both methods are derived. Pass `serialize` or `deserialize` to derive only one:
 
 ```c3
-$expand(derive(Animal::name, dessert::serialize));   // serialize only
-$expand(derive(Animal::name, dessert::deserialize)); // deserialize only
+$expand(dessert::@derive(Animal, serialize));   // serialize only
+$expand(dessert::@derive(Animal, deserialize)); // deserialize only
 ```
 
 > **Imports:** `import dessert;` brings in the derive machinery and all the format factories (`json::serializer`, `csv::serializer`, `xml::serializer`, …). Add `import json;` / `import csv;` only when you need to name the value types directly (`JsonValue`, `CSVValue`, `CSVDocument`); XML has no separate value type.
@@ -604,15 +609,14 @@ module example;
 import std;
 import dessert;
 import json;
-import derive;
 
-$expand(derive(Animal::name, dessert));
+$expand(dessert::@derive(Animal));
 struct Animal {
   String name;
   String specie;
 }
 
-$expand(derive(Person::name, dessert));
+$expand(dessert::@derive(Person));
 struct Person {
   int age;
   String name;
@@ -726,6 +730,8 @@ interface Deserializer {
   fn float? next_float() @optional;    // falls back to next_double
 
   fn Allocator get_allocator() @optional;
+
+  fn void? error(fault excuse, String msg) @optional; // custom error reporting; falls back to eprintfn
 }
 ```
 
@@ -782,9 +788,11 @@ Dessert uses C3's fault system for error handling:
 | `INVALID_NULL`           | `json`         | Invalid null value                               |
 | `INVALID_COMMENT`        | `json`         | Malformed comment (JSONC flavor)                 |
 
+**Custom error reporting:** a deserializer may implement the optional `error(fault excuse, String msg)` method. When deserialization raises an error (unknown field, missing required field, failed value validation, ...) dessert calls this hook with the fault and a formatted message before returning the fault, letting a format collect diagnostics or print its own message. If absent, dessert falls back to `io::eprintfn`.
+
 ## Best Practices
 
-1. **Use `derive` for full round-trip support**: `$expand(derive(MyStruct::name, dessert))` generates both `serialize` and `deserialize` at once with no boilerplate.
+1. **Use `@derive` for full round-trip support**: `$expand(dessert::@derive(MyStruct))` generates both `serialize` and `deserialize` at once with no boilerplate.
 
 2. **Use skip for sensitive data**: Mark fields that shouldn't be serialized (e.g., passwords) with `.skip = true`.
 

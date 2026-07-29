@@ -6,7 +6,7 @@ import derive;
 import std::collections::object;
 import dessert::format::dotenv;
 
-$expand(derive(Loglevel::name, dessert));
+$expand(dessert::@derive(Loglevel));
 enum Loglevel @DEnum({ .rename_all = LOWER_CASE }) {
   VERBOSE,
   DEBUG,
@@ -27,9 +27,9 @@ macro void? Email.deserialize(&self, des) {
   *self = (Email) s;
 }
 
-$expand(derive(Settings::name, dessert));
+$expand(dessert::@derive(Settings));
 struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
-  String api_key;
+  Maybe{String} api_key;
   long version;
   bool debug;
 
@@ -43,7 +43,7 @@ struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
   NumberGt{int, 0} age;
 }
 
-$expand(derive(FixedArrayWrap::name, dessert));
+$expand(dessert::@derive(FixedArrayWrap));
 struct FixedArrayWrap {
     int[3] data @DField({ .array.skip_extra = true });
 }

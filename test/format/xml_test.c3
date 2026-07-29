@@ -5,35 +5,34 @@ module xml_test @test;
 import std;
 import dessert;
 import dessert::format::xml;
-import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive(XBook::name, dessert::serialize));
+$expand(dessert::@derive(XBook, serialize));
 struct XBook {
   String title;
   int    year;
 }
 
-$expand(derive(XAuthor::name, dessert::serialize));
+$expand(dessert::@derive(XAuthor, serialize));
 struct XAuthor {
   String name;
 }
 
-$expand(derive(XBookAuthored::name, dessert::serialize));
+$expand(dessert::@derive(XBookAuthored, serialize));
 struct XBookAuthored {
   String  title;
   XAuthor author;
 }
 
-$expand(derive(XList::name, dessert::serialize));
+$expand(dessert::@derive(XList, serialize));
 struct XList {
   String label;
   int[]  marks;
 }
 
 // Attribute fields must precede element fields (the intended layout).
-$expand(derive(XPoint::name, dessert::serialize));
+$expand(dessert::@derive(XPoint, serialize));
 struct XPoint {
   int    x @DFieldSer({ .fmt = { "xml:attribute" } });
   int    y @DFieldSer({ .fmt = { "xml:attribute" } });
@@ -41,7 +40,7 @@ struct XPoint {
 }
 
 // An attribute field placed after an element field is an error.
-$expand(derive(XBadOrder::name, dessert::serialize));
+$expand(dessert::@derive(XBadOrder, serialize));
 struct XBadOrder {
   String label;
   int    x @DFieldSer({ .fmt = { "xml:attribute" } });

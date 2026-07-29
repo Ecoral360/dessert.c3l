@@ -5,18 +5,17 @@ module csv_test @test;
 import std;
 import dessert;
 import csv;
-import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive(CRow::name, dessert::serialize));
+$expand(dessert::@derive(CRow, serialize));
 struct CRow {
   int    id;
   String name;
   bool   active;
 }
 
-$expand(derive(CMeasure::name, dessert::serialize));
+$expand(dessert::@derive(CMeasure, serialize));
 struct CMeasure {
   String city;
   double temp;

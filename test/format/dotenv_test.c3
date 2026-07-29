@@ -6,11 +6,10 @@ import std;
 import std::io::file;
 import dessert;
 import dessert::format::dotenv;
-import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive(EnvConfig::name, dessert::deserialize));
+$expand(dessert::@derive(EnvConfig, deserialize));
 struct EnvConfig @DStruct({ .rename_all = UPPER_CASE }) {
   String name;       // unquoted value
   String greeting;   // double-quoted value with an escape
@@ -19,7 +18,7 @@ struct EnvConfig @DStruct({ .rename_all = UPPER_CASE }) {
   bool   debug;
 }
 
-$expand(derive(EnvSmall::name, dessert::deserialize));
+$expand(dessert::@derive(EnvSmall, deserialize));
 struct EnvSmall @DStruct({ .rename_all = UPPER_CASE }) {
   String host;
   int    offset;

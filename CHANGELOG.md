@@ -4,6 +4,8 @@ All notable changes to dessert are documented here.
 
 ## 0.1.2
 
+- Deprecated the old `derive` form
+- Changed `derive` to be `dessert::@derive(Type)` which accepts `dessert::@derive(Type, serialize)` and `dessert::@derive(Type, deserialize)` specialized forms
 - Added custom error registration with the optional `Deserializer.error` method that will be called with an excuse and an error message.
 - Added validated values (in `dessert::values`) **Still experimental**
 - Custom serialize and deserialize methods can now take the `DFieldConfig` as a second parameter

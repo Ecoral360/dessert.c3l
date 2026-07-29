@@ -2,64 +2,63 @@ module deserialize_test @test;
 import std;
 import dessert;
 import json;
-import derive;
 
 // ── Test types ───────────────────────────────────────────────────────────────
 
-$expand(derive(DPoint::name, dessert));
+$expand(dessert::@derive(DPoint));
 struct DPoint {
   int x;
   int y;
 }
 
-$expand(derive(DBox::name, dessert::deserialize));
+$expand(dessert::@derive(DBox, deserialize));
 struct DBox {
   String label;
   DPoint center;
 }
 
-$expand(derive(DWithPointer::name, dessert::deserialize));
+$expand(dessert::@derive(DWithPointer, deserialize));
 struct DWithPointer {
   String name;
   DPoint* extra;
 }
 
-$expand(derive(DWithArray::name, dessert::deserialize));
+$expand(dessert::@derive(DWithArray, deserialize));
 struct DWithArray {
   String  tag;
   DPoint[] items;
 }
 
 // skip=true on des: JSON field is consumed but not assigned to the struct field
-$expand(derive(DWithSkipDes::name, dessert::deserialize));
+$expand(dessert::@derive(DWithSkipDes, deserialize));
 struct DWithSkipDes {
   String kept;
   String dropped @DFieldDes({ .skip = true });
 }
 
 // rename: JSON key "alias" maps to field "original"
-$expand(derive(DWithRenameDes::name, dessert::deserialize));
+$expand(dessert::@derive(DWithRenameDes, deserialize));
 struct DWithRenameDes {
   String original @DFieldDes({ .rename = "alias" });
   int    count    @DFieldDes({ .rename = "num" });
 }
 
 // deny_unknown_fields: error on unexpected JSON keys
-$expand(derive(DDenyUnknown::name, dessert::deserialize));
+$expand(dessert::@derive(DDenyUnknown, deserialize));
 struct DDenyUnknown @DStruct({ .deny_unknown_fields = true }) {
   String name;
   int    value;
 }
 
 // Struct for duplicate key test
-$expand(derive(DDupCheck::name, dessert::deserialize));
+$expand(dessert::@derive(DDupCheck, deserialize));
 struct DDupCheck @DStruct({ .deny_dup_keys = true }) {
   String name;
   int    age;
 }
 
 // Default enum: serialize / deserialize by variant name
-$expand(derive(DDirection::name, dessert::deserialize));
+$expand(dessert::@derive(DDirection, deserialize));
 enum DDirection {
   NORTH,
   SOUTH,
@@ -67,83 +66,83 @@ enum DDirection {
   WEST,
 }
 
-$expand(derive(DWithDirection::name, dessert::deserialize));
+$expand(dessert::@derive(DWithDirection, deserialize));
 struct DWithDirection {
   String     label;
   DDirection dir;
 }
 
 // Ordinal enum: deserialize from integer position
-$expand(derive(DRank::name, dessert::deserialize));
+$expand(dessert::@derive(DRank, deserialize));
 enum DRank @DEnum({ .as = ORDINAL }) {
   BRONZE,
   SILVER,
   GOLD,
 }
 
-$expand(derive(DWithRank::name, dessert::deserialize));
+$expand(dessert::@derive(DWithRank, deserialize));
 struct DWithRank {
   String label;
   DRank  rank;
 }
 
 // Field enum: deserialize by matching an associated field value
-$expand(derive(DColor::name, dessert::deserialize));
+$expand(dessert::@derive(DColor, deserialize));
 enum DColor : (String hex) @DEnum({ .as = FIELD, .field = "hex" }) {
   RED   { "#FF0000" },
   GREEN { "#00FF00" },
   BLUE  { "#0000FF" },
 }
 
-$expand(derive(DWithColor::name, dessert::deserialize));
+$expand(dessert::@derive(DWithColor, deserialize));
 struct DWithColor {
   String label;
   DColor color;
 }
 
 // Invalid enum (no such variant) → INVALID_ENUM_VALUE
-$expand(derive(DWithDirInvalid::name, dessert::deserialize));
+$expand(dessert::@derive(DWithDirInvalid, deserialize));
 struct DWithDirInvalid {
   DDirection dir;
 }
 
 // Fallback enum (DESCRIPTION mode): unknown variant → fallback value
-$expand(derive(DStatus::name, dessert::deserialize));
+$expand(dessert::@derive(DStatus, deserialize));
 enum DStatus @DEnumDes({ .fallback = "UNKNOWN" }) {
   ACTIVE,
   INACTIVE,
   UNKNOWN,
 }
 
-$expand(derive(DWithStatus::name, dessert::deserialize));
+$expand(dessert::@derive(DWithStatus, deserialize));
 struct DWithStatus {
   String  label;
   DStatus status;
 }
 
 // Fallback enum (FIELD mode): unknown field value → fallback value
-$expand(derive(DPriority::name, dessert::deserialize));
+$expand(dessert::@derive(DPriority, deserialize));
 enum DPriority : (String code) @DEnumDes({ .as = FIELD, .field = "code", .fallback = "NONE" }) {
   HIGH   { "high"   },
   MEDIUM { "medium" },
   NONE   { ""       },
 }
 
-$expand(derive(DWithPriority::name, dessert::deserialize));
+$expand(dessert::@derive(DWithPriority, deserialize));
 struct DWithPriority {
   String    label;
   DPriority priority;
 }
 
 // Maybe field
-$expand(derive(DWithMaybe::name, dessert::deserialize));
+$expand(dessert::@derive(DWithMaybe, deserialize));
 struct DWithMaybe {
   String    name;
   Maybe{int} opt;
 }
 
 // Full struct for roundtrip testing (needs both ser + des)
-$expand(derive(DFull::name, dessert));
+$expand(dessert::@derive(DFull));
 struct DFull {
   String name;
   int    age;
@@ -151,7 +150,7 @@ struct DFull {
   double score;
 }
 
-$expand(derive(DComplex::name, dessert));
+$expand(dessert::@derive(DComplex));
 struct DComplex {
   String   title;
   DPoint   origin;
@@ -597,7 +596,7 @@ fn void test_des_roundtrip_complex() @test => @pool()  {
 
 // ── Tests: inline sub-struct ──────────────────────────────────────────────────
 
-$expand(derive(DWithInlineSub::name, dessert));
+$expand(dessert::@derive(DWithInlineSub));
 struct DWithInlineSub {
   int id;
   struct pos {
@@ -641,7 +640,7 @@ union DUVariant {
   double f;
 }
 
-$expand(derive(DTaggedUnion::name, dessert));
+$expand(dessert::@derive(DTaggedUnion));
 struct DTaggedUnion {
   int       tag;
   DUVariant val @DField({ .tagged = { .by = "tag", .inlined = true } });
@@ -673,7 +672,7 @@ fn void test_des_union_roundtrip() @test => @pool()  {
 
 // ── Tests: @DField tagged union (named) ──────────────────────────────────────
 
-$expand(derive(DDUnionNamed::name, dessert));
+$expand(dessert::@derive(DDUnionNamed));
 struct DDUnionNamed {
   int kind;
   union p @DField({ .tagged = { .by = "kind" } }) {
@@ -732,7 +731,7 @@ fn void test_des_dunion_named_roundtrip_second() @test => @pool()  {
 
 // ── Tests: @DField anonymous union (flattened) ────────────────────────────────
 
-$expand(derive(DDUnionAnon::name, dessert));
+$expand(dessert::@derive(DDUnionAnon));
 struct DDUnionAnon {
   int kind;
   union @DField({ .tagged = { .by = "kind" } }) {
@@ -786,10 +785,10 @@ fn void test_des_dunion_anon_roundtrip_second() @test => @pool()  {
 // Named inlined union: JSON key is the union field name ("payload");
 // value is the active member's value directly. kind serialized as ordinal int.
 
-$expand(derive(DMBOrdinalTag::name, dessert));
+$expand(dessert::@derive(DMBOrdinalTag));
 enum DMBOrdinalTag { ORD_FIRST, ORD_SECOND, ORD_THIRD }
 
-$expand(derive(DMatchByOrdinal::name, dessert));
+$expand(dessert::@derive(DMatchByOrdinal));
 struct DMatchByOrdinal {
   DMBOrdinalTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = ORDINAL } } }) {
@@ -831,10 +830,10 @@ fn void test_des_match_by_ordinal_roundtrip() @test => @pool()  {
 // DESCRIPTION: switch on enum VALUE. Union member names uppercased must match
 // enum value names. E.g. member "desc_a" → @str_to_upper → "DESC_A" → case DESC_A.
 
-$expand(derive(DMBDescTag::name, dessert));
+$expand(dessert::@derive(DMBDescTag));
 enum DMBDescTag { DESC_A, DESC_B, DESC_C }
 
-$expand(derive(DMatchByDesc::name, dessert));
+$expand(dessert::@derive(DMatchByDesc));
 struct DMatchByDesc {
   DMBDescTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = DESCRIPTION } } }) {
@@ -875,14 +874,14 @@ fn void test_des_match_by_desc_roundtrip() @test => @pool()  {
 // FIELD: switch on enum.variant (String). Value must equal union member name exactly.
 // E.g. FLD_A { "fld_a" } → kind.variant == "fld_a" → case "fld_a" → member fld_a.
 
-$expand(derive(DMBFieldTag::name, dessert));
+$expand(dessert::@derive(DMBFieldTag));
 enum DMBFieldTag : (String variant) {
   FLD_A { "fld_a" },
   FLD_B { "fld_b" },
   FLD_C { "fld_c" },
 }
 
-$expand(derive(DMatchByField::name, dessert));
+$expand(dessert::@derive(DMatchByField));
 struct DMatchByField {
   DMBFieldTag kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .match = { .by = FIELD, .field = "variant" } } }) {
@@ -925,7 +924,7 @@ fn void test_des_match_by_field_roundtrip() @test => @pool()  {
 // EMPTY_STRUCT → consume payload as Object*. NULL → Maybe{int}. ZERO → int.
 
 // Default (no unmapped.as = ERROR): out-of-range kind raises UNMAPPED_UNION_VARIANT
-$expand(derive(DUnmappedError::name, dessert::deserialize));
+$expand(dessert::@derive(DUnmappedError, deserialize));
 struct DUnmappedError {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true } }) {
@@ -946,7 +945,7 @@ fn void test_des_unmapped_as_error() @test => @pool()  {
 }
 
 // unmapped.as = EMPTY_STRUCT: out-of-range kind → consume payload as Object* {}
-$expand(derive(DUnmappedEmptyStruct::name, dessert::deserialize));
+$expand(dessert::@derive(DUnmappedEmptyStruct, deserialize));
 struct DUnmappedEmptyStruct {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = EMPTY_STRUCT } } }) {
@@ -962,7 +961,7 @@ fn void test_des_unmapped_as_empty_struct() @test => @pool()  {
 }
 
 // unmapped.as = NULL: out-of-range kind → consume payload as null
-$expand(derive(DUnmappedNull::name, dessert::deserialize));
+$expand(dessert::@derive(DUnmappedNull, deserialize));
 struct DUnmappedNull {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = NULL } } }) {
@@ -978,7 +977,7 @@ fn void test_des_unmapped_as_null() @test => @pool()  {
 }
 
 // unmapped.as = ZERO: out-of-range kind → consume payload as int
-$expand(derive(DUnmappedZero::name, dessert::deserialize));
+$expand(dessert::@derive(DUnmappedZero, deserialize));
 struct DUnmappedZero {
   int kind;
   union payload @DField({ .tagged = { .by = "kind", .inlined = true, .unmapped = { .as = ZERO } } }) {
@@ -1011,14 +1010,14 @@ fn void test_des_roundtrip_null_pointer() @test => @pool()  {
   assert(copy.path.len == 0);
 }
 
-$expand(derive(SWeatherRow::name, dessert::deserialize));
+$expand(dessert::@derive(SWeatherRow, deserialize));
 struct SWeatherRow {
   String city;
   double temp;
   bool   sunny;
 }
 
-$expand(derive(FooWithHashMap::name, dessert::deserialize));
+$expand(dessert::@derive(FooWithHashMap, deserialize));
 struct FooWithHashMap {
   String bar;
   HashMap{String, int} found;
@@ -1194,7 +1193,7 @@ fn void test_json_strict_plain_json_ok() @test => @pool()  {
 
 // ── Tests: The correct allocator is used ────────────────────────
 
-$expand(derive(TestDeserializedAllocator::name, dessert));
+$expand(dessert::@derive(TestDeserializedAllocator));
 struct TestDeserializedAllocator {
   int[] numbers;
 }
@@ -1212,7 +1211,7 @@ fn void test_allocator_used() @test => @pool()  {
 }
 
 
-$expand(derive(TestList::name, dessert));
+$expand(dessert::@derive(TestList));
 struct TestList {
   List{int} numbers;
 }
@@ -1230,7 +1229,7 @@ fn void test_list() @test => @pool()  {
   test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
 }
 
-$expand(derive(TestListPointer::name, dessert));
+$expand(dessert::@derive(TestListPointer));
 struct TestListPointer {
   List{int}* numbers;
 }
@@ -1250,7 +1249,7 @@ fn void test_list_pointer() @test => @pool()  {
   alloc::free(mem, v.numbers);
 }
 
-$expand(derive(TestListFlat::name, dessert));
+$expand(dessert::@derive(TestListFlat));
 struct TestListFlat {
   List{int} numbers @DField({ .flatten = true });
 }
@@ -1268,7 +1267,7 @@ fn void test_list_flat() @test => @pool() {
   test::eq(v.numbers.to_tarray(), (int[]) { 1, 2, 3 });
 }
 
-$expand(derive(TestListFlatPointer::name, dessert));
+$expand(dessert::@derive(TestListFlatPointer));
 struct TestListFlatPointer {
   List{int}* numbers @DField({ .flatten = true });
 }
@@ -1289,56 +1288,56 @@ fn void test_list_flat_pointer() @test => @pool() {
 }
 
 
-$expand(derive(DessertKind::name, dessert));
+$expand(dessert::@derive(DessertKind));
 enum DessertKind @DEnum({ .rename_all = KEBAB_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindUpper::name, dessert));
+$expand(dessert::@derive(DessertKindUpper));
 enum DessertKindUpper @DEnum({ .rename_all = UPPER_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindVerbatim::name, dessert));
+$expand(dessert::@derive(DessertKindVerbatim));
 enum DessertKindVerbatim @DEnum({ .rename_all = VERBATIM }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindCamel::name, dessert));
+$expand(dessert::@derive(DessertKindCamel));
 enum DessertKindCamel @DEnum({ .rename_all = CAMEL_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindPascal::name, dessert));
+$expand(dessert::@derive(DessertKindPascal));
 enum DessertKindPascal @DEnum({ .rename_all = PASCAL_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindConstant::name, dessert));
+$expand(dessert::@derive(DessertKindConstant));
 enum DessertKindConstant @DEnum({ .rename_all = CONSTANT_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindSnake::name, dessert));
+$expand(dessert::@derive(DessertKindSnake));
 enum DessertKindSnake @DEnum({ .rename_all = SNAKE_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
   PEACH_COBBLER
 }
 
-$expand(derive(DessertKindLower::name, dessert));
+$expand(dessert::@derive(DessertKindLower));
 enum DessertKindLower @DEnum({ .rename_all = LOWER_CASE }) {
   BANANA_SPLIT,
   CHOCOLATE_CROISSANT,
@@ -1376,14 +1375,14 @@ fn void test_enum_rename_all() @test => @pool() {
 // A field marked `required` must be present in the input; otherwise
 // deserialization faults with MISSING_REQUIRED_FIELD.
 
-$expand(derive(DRequired::name, dessert::deserialize));
+$expand(dessert::@derive(DRequired, deserialize));
 struct DRequired {
   String name @DFieldDes({ .required = true });
   int    age;
 }
 
 // required combined with rename: the field must appear under its renamed key.
-$expand(derive(DRequiredRenamed::name, dessert::deserialize));
+$expand(dessert::@derive(DRequiredRenamed, deserialize));
 struct DRequiredRenamed {
   String token @DFieldDes({ .rename = "tok", .required = true });
 }
@@ -1437,7 +1436,7 @@ fn void test_des_required_renamed_original_key_faults() @test => @pool() {
 
 faultdef NEGATIVE_NOT_ALLOWED;
 
-$expand(derive(DManualTemp::name, dessert::deserialize));
+$expand(dessert::@derive(DManualTemp, deserialize));
 struct DManualTemp {
   String city;
   double celsius;
@@ -1452,7 +1451,7 @@ fn String? DManualTemp.deserialize_city(&self, Deserializer des) {
   return des.next_string()!;
 }
 
-$expand(derive(DManualGuard::name, dessert::deserialize));
+$expand(dessert::@derive(DManualGuard, deserialize));
 struct DManualGuard {
   int amount;
 }
@@ -1493,12 +1492,12 @@ fn void test_des_manual_field_fault_propagates() @test => @pool() {
 // N items, the default is to fault (TOO_MANY_ELEMENTS_IN_ARRAY); opting into
 // `.array.skip_extra` discards the overflow instead.
 
-$expand(derive(DFixedArr::name, dessert::deserialize));
+$expand(dessert::@derive(DFixedArr, deserialize));
 struct DFixedArr {
   int[3] scores;
 }
 
-$expand(derive(DFixedArrSkip::name, dessert::deserialize));
+$expand(dessert::@derive(DFixedArrSkip, deserialize));
 struct DFixedArrSkip {
   int[3] scores @DFieldDes({ .array = { .skip_extra = true } });
 }
@@ -1554,7 +1553,7 @@ fn void test_des_array_skip_extra_exact_fit_unaffected() @test => @pool() {
 // the method must write it through `&self`. (The `Type?`-returning mode, where
 // dessert assigns the returned value, is covered by DManualTemp/DManualGuard.)
 
-$expand(derive(DManualSelfAssign::name, dessert::deserialize));
+$expand(dessert::@derive(DManualSelfAssign, deserialize));
 struct DManualSelfAssign {
   String tag;
   int    count;

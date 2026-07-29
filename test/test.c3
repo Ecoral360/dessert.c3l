@@ -3,23 +3,22 @@ import std;
 import dessert;
 import json;
 import csv;
-import derive;
 
-$expand(derive(Animal::name, dessert));
+$expand(dessert::@derive(Animal));
 struct Animal {
   String name;
   String specie;
 }
 
 
-$expand(derive(State::name, dessert));
+$expand(dessert::@derive(State));
 enum State : (String name) {
   WAITING { "wait" },
   SLEEPING { "sleep" },
   RUNNING { "run" },
 }
 
-$expand(derive(Person::name, dessert));
+$expand(dessert::@derive(Person));
 struct Person {
   int age;
   String name;
@@ -70,7 +69,7 @@ const String TEST_DATA = `{
   "wait": null
 }`;
 
-$expand(derive(Function::name, dessert));
+$expand(dessert::@derive(Function));
 struct Function @DStruct({ .deny_unknown_fields = true })
 {
   String name;
@@ -99,7 +98,7 @@ fn void test_escape() @test {
 }
 
 
-$expand(derive(Meteo::name, dessert::serialize));
+$expand(dessert::@derive(Meteo, serialize));
 struct Meteo {
   String date;
   double temperature;
