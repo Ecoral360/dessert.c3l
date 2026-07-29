@@ -535,6 +535,16 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       $endif
       return value;
 
+    $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer, (DFieldConfig) {})):
+      $if Output != Object &&& Output::kind == STRUCT:
+        if (!config.flatten) deserializer.struct_start(Output::name)!;
+      $endif
+      value.deserialize(deserializer, config)!;
+      $if Output != Object &&& Output::kind == STRUCT:
+        if (!config.flatten) deserializer.struct_end(Output::name)!;
+      $endif
+      return value;
+
     $case Output::is_generic(HashMap):
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
