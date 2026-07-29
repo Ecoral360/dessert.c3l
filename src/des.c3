@@ -168,7 +168,7 @@ macro @is_deserializable($Output) @const {
   @require($defined(Deserializer d = deserializer))
 *>
 macro Output? deserialize(deserializer) <Output> => @pool() { 
-  return deserialize_value{Output, $Typeof(deserializer)}(deserializer, {}); 
+  return deserialize_value{Output}(deserializer, {}); 
 }
 
 
@@ -330,7 +330,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
   $endif
 
   $if $config.flatten &&& !$member.type.is_generic(List) &&& !($member.type.kind == POINTER &&& $member.type.inner.is_generic(List)):
-    value.$member = deserialize_value{$member.type, $Typeof(deserializer)}(deserializer, $config)!;
+    value.$member = deserialize_value{$member.type}(deserializer, $config)!;
     return true;
   $else 
     if ($name == next_key) {
@@ -419,7 +419,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
             $case $member.type.is_generic(List) &&& $config.flatten:
               (void) deserializer.next_field_name()!;
 
-              $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
+              $Typefrom($member.type.generic_args[0])? next_value = deserialize_value{$member.type.generic_args[0]}(deserializer, { ...$config, .flatten = false });
               if (catch e = next_value) {
                 io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
                 next_value!;
@@ -432,7 +432,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
             $case $member.type.kind == POINTER &&& $member.type.inner.is_generic(List) &&& $config.flatten:
               (void) deserializer.next_field_name()!;
 
-              $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0], $Typeof(deserializer)}(deserializer, { ...$config, .flatten = false });
+              $Typefrom($member.type.inner.generic_args[0])? next_value = deserialize_value{$member.type.inner.generic_args[0]}(deserializer, { ...$config, .flatten = false });
               if (catch e = next_value) {
                 io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
                 next_value!;
@@ -448,7 +448,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
             $default:
               (void) deserializer.next_field_name()!;
 
-              $Typefrom($member.type)? next_value = deserialize_value{$member.type, $Typeof(deserializer)}(deserializer, $config);
+              $Typefrom($member.type)? next_value = deserialize_value{$member.type}(deserializer, $config);
               if (catch e = next_value) {
                 io::eprintfn("Error [%s] deserializing key: '%s' (%s)", e, next_key, $member.type.name);
                 next_value!;
@@ -475,15 +475,15 @@ macro @default_unmapped(DFieldConfig $config) @local @const {
     $case ERROR:
       return "default: return UNMAPPED_UNION_VARIANT~;";
     $case EMPTY_STRUCT:
-      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{Object*, $Typeof(deserializer)}(deserializer, {})!;";
+      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{Object*}(deserializer, {})!;";
     $case NULL:
-      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{Maybe{int}, $Typeof(deserializer)}(deserializer, {})!;";
+      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{Maybe{int}}(deserializer, {})!;";
     $case ZERO:
-      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{int, $Typeof(deserializer)}(deserializer, {})!;";
+      return "default: (void) deserializer.next_field_name()!; (void) deserialize_value{int}(deserializer, {})!;";
   $endswitch
 }
 
-fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des> {
+macro Output? deserialize_value(deserializer, DFieldConfig $config) <Output> @local {
   Output value;
   $switch:
     $case Output::kind == POINTER:
@@ -492,7 +492,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       } else {
         $switch:
           $case Output == Object*:
-            return utils::@method_fallback{Deserializer}(deserializer, next_any, UNSUPPORTED_ANY~)!;
+            return utils::@method_fallback{Deserializer}(deserializer, next_any, UNSUPPORTED_ANY~);
 
           $case Output::inner.is_generic(List):
             Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
@@ -513,7 +513,7 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
             Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
             value = alloc::alloc(allocator, Output::inner);
-            *value = deserialize_value{Output::inner, Des}(deserializer, config)!;
+            *value = deserialize_value{Output::inner}(deserializer, $config)!;
             return value;
         $endswitch
       }
@@ -527,21 +527,29 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
 
     $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer)):
       $if Output != Object &&& Output::kind == STRUCT:
-        if (!config.flatten) deserializer.struct_start(Output::name)!;
+        $if !$config.flatten:
+          deserializer.struct_start(Output::name)!;
+        $endif
       $endif
       value.deserialize(deserializer)!;
       $if Output != Object &&& Output::kind == STRUCT:
-        if (!config.flatten) deserializer.struct_end(Output::name)!;
+        $if !$config.flatten:
+          deserializer.struct_end(Output::name)!;
+        $endif
       $endif
       return value;
 
     $case $defined(value.deserialize) &&& $defined(value.deserialize(deserializer, (DFieldConfig) {})):
       $if Output != Object &&& Output::kind == STRUCT:
-        if (!config.flatten) deserializer.struct_start(Output::name)!;
+        $if !$config.flatten:
+          deserializer.struct_start(Output::name)!;
+        $endif
       $endif
-      value.deserialize(deserializer, config)!;
+      value.deserialize(deserializer, $config)!;
       $if Output != Object &&& Output::kind == STRUCT:
-        if (!config.flatten) deserializer.struct_end(Output::name)!;
+        $if !$config.flatten:
+          deserializer.struct_end(Output::name)!;
+        $endif
       $endif
       return value;
 
@@ -555,12 +563,16 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       value.init(allocator);
       defer catch value.free();
 
-      if (!config.flatten) deserializer.struct_start(Output::name)!;
+      $if !$config.flatten:
+        deserializer.struct_start(Output::name)!;
+      $endif
       while(deserializer.has_next_field()!) {
         String next_key = deserializer.next_field_name()!;
         value.set(next_key, deserialize{$Typeof(value.tvalues()[0])}(deserializer)!);
       }
-      if (!config.flatten) deserializer.struct_end(Output::name)!;
+      $if !$config.flatten:
+        deserializer.struct_end(Output::name)!;
+      $endif
       return value;
 
     $case Output::is_generic(List):
@@ -572,17 +584,17 @@ fn Output? deserialize_value(Des deserializer, DFieldConfig config) <Output, Des
       if (deserializer.next_null()!) {
         return (Maybe{$Typeof(value.value)}) {};
       } else {
-        return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value), Des}(deserializer, config)!);
+        return maybe::value{$Typeof(value.value)}(deserialize_value{$Typeof(value.value)}(deserializer, $config)!);
       }
 
     $case Output::kind == ARRAY: //$defined(value.len) &&& $defined(value[0]) &&& Output != String:
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
-      return @deserialize_slice{Output::inner}(deserializer, allocator, config, Output::len);
+      return @deserialize_slice{Output::inner}(deserializer, allocator, $config, Output::len);
 
     $case Output::kind == SLICE: //$defined(value.len) &&& $defined(value[0]) &&& Output != String:
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
 
-      return @deserialize_slice{Output::inner}(deserializer, allocator, config);
+      return @deserialize_slice{Output::inner}(deserializer, allocator, $config);
 
     $default:
       return @deserialize_primitive_value(Output, deserializer)!;

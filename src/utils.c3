@@ -119,6 +119,7 @@ macro @method_fallback(des, #method, #fallback = ..., #args = ...) <Interface> @
     $case $defined(#fallback):
       return #fallback;
     $default:
+      $error "Must define a fallback";
   $endswitch
 }
 
