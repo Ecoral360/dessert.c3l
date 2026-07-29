@@ -1,4 +1,4 @@
-module example @if($feature(DESSERT_EXAMPLE));
+module example @feat(DESSERT_EXAMPLE);
 import std;
 import dessert;
 import json;
@@ -32,17 +32,19 @@ struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
   String api_key;
   long version;
   bool debug;
-  String url;
+
+  Validated{String} url @DField({ .fmt = { `min_length=5`, `pattern=` } });
+
   Loglevel log_level @DField({ .rename = "LOG" });
 
   Email email @DField({ .required = true });
   String other_email;
 
+  NumberGt{int, 0} age;
 }
 
 $expand(derive(FixedArrayWrap::name, dessert));
-struct FixedArrayWrap
-{
+struct FixedArrayWrap {
     int[3] data @DField({ .array.skip_extra = true });
 }
 
