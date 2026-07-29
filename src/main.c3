@@ -33,7 +33,7 @@ struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
   long version;
   bool debug;
 
-  Validated{String} url @DField({ .fmt = { `min_length=5`, `pattern=` } });
+  Validated{String} url @DField({ .fmt = { `max_length=5` } });
 
   Loglevel log_level @DField({ .rename = "LOG" });
 

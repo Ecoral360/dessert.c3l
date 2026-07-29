@@ -2,6 +2,12 @@
 
 All notable changes to dessert are documented here.
 
+## 0.1.2
+
+- Added custom error registration with the optional `Deserializer.error` method that will be called with an excuse and an error message.
+- Added validated values (in `dessert::values`) **Still experimental**
+- Custom serialize and deserialize methods can now take the `DFieldConfig` as a second parameter
+
 ## 0.1.1
 
 - Added a `@DField({ array.skip_extra = true|false })` config to allow skipping extra values (default `false`)

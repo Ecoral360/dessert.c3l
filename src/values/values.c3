@@ -3,7 +3,7 @@ module dessert::values;
 import dessert::ser;
 import dessert::des;
 
-faultdef OUTSIDE_RANGE;
+faultdef OUTSIDE_RANGE, VALIDATION_ERROR;
 
 typedef Email = String;
 macro void? Email.serialize(&self, ser) => ser.serialize_string((String) *self)!;
@@ -20,6 +20,24 @@ macro void? Validated.serialize(&self, ser) => ser::serialize_value(ser, (Type) 
 macro void? Validated.deserialize(&self, des, DFieldConfig $config) {
   Type s = des::deserialize{Type}(des)!;
   var $fmt = $config.fmt;
+  $switch:
+    $case Type == String:
+      @validate_string(des, s, $fmt)!;
+      *self = ($Typeof(*self)) s;
+  $endswitch
+}
+
+
+macro void? @validate_string(des, String s, FieldAttrs $fmt) @local {
+  $fmt.@get_then("min_length"; $min_length) {
+    var $value = values::@expand($min_length);
+    if (s.len < $value) return des::errorf(des, VALIDATION_ERROR, "The length must be greater than %s. Was %s", $value, s.len);
+  };
+
+  $fmt.@get_then("max_length"; $max_length) {
+    var $value = values::@expand($max_length);
+    if (s.len > $value) return des::errorf(des, VALIDATION_ERROR, "The length must be less than %s. Was %s", $value, s.len);
+  };
 }
 
 

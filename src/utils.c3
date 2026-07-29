@@ -94,27 +94,19 @@ fn String rename_enum_description(String name, CaseConvention convention) {
 
 
 <* thanks to @nonnorm for this helper macro ! *>
-macro @method_fallback(des, #method, #fallback = ..., #args = ...) <Interface> @private {
+macro @method_fallback(des, #method, #fallback = ..., ...) <Interface> @private {
   var $method = $stringify(#method);
   $switch:
     $case $Typeof(des) == Interface:
       if (&des.$method) {
-        $if $defined(#args):
-          return des.$method(#args);
-        $else
-          return des.$method();
-        $endif
+        return des.$method(...$vaarg);
       }
       $if $defined(#fallback):
         return #fallback;
       $endif
 
     $case $defined(des.$method):
-      $if $defined(#args):
-        return des.$method(#args);
-      $else
-        return des.$method();
-      $endif
+      return des.$method(...$vaarg);
 
     $case $defined(#fallback):
       return #fallback;

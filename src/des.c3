@@ -140,6 +140,8 @@ interface Deserializer {
     `Object*`, container storage). Optional: falls back to the `tmem` allocator
   *>
   fn Allocator get_allocator() @optional;
+
+  fn void? error(fault excuse, String msg) @optional;
 }
 
 faultdef VALIDATOR_ERROR;
@@ -294,8 +296,9 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
         $endforeach
 
         $if $struct_config.deny_unknown_fields:
-          io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "' (which denies unknown fields), encountered unknown field '%s'.", next_key);
-          return UNKNOWN_FIELD~;
+          var $error_msg = "While deserializing '" +++ $Typeof(value)::inner.name +++ "' (which denies unknown fields), encountered unknown field '%s'.";
+          return errorf(deserializer, UNKNOWN_FIELD, $error_msg, next_key)!;
+          // return UNKNOWN_FIELD~;
         $else
           // Skip the value if not found
           (void) deserializer.next_field_name()!;
@@ -306,12 +309,16 @@ macro void? impl_deserialize_inline(value, deserializer) @local {
         DFieldConfig $config = $member.has_tag("dessert:des:field") ??? $member.get_tag("dessert:des:field") : (DFieldConfig) {};
         $if $config.required:
           if (!names[$i]) {
-            io::eprintfn("While deserializing '" +++ $Typeof(value)::inner.name +++ "', missing required field '%s'.", $member.name);
-            return MISSING_REQUIRED_FIELD~;
+            return errorf(deserializer, MISSING_REQUIRED_FIELD, string::tformat("While deserializing '" +++ $Typeof(value)::inner.name +++ "', missing required field '%s'.", $member.name))!;
           }
         $endif
       $endforeach
   $endswitch
+}
+
+macro void? errorf(des, fault excuse, String error_fmt, ...) {
+  utils::@method_fallback{Deserializer}(des, error, io::eprintfn(error_fmt, ...$vaarg), UNKNOWN_FIELD, string::tformat(error_fmt, ...$vaarg))!;
+  return excuse~;
 }
 
 macro void? @skip_next_value_fallback(deserializer) @local {

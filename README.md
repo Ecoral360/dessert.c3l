@@ -251,6 +251,31 @@ fn void? User.deserialize_name(&self, Deserializer des) {
 
 The methods can read the rest of `self`, and returning a fault (e.g. `return INVALID_VALUE~;`) aborts (de)serialization and propagates the error to the caller.
 
+**Type-level custom serialize / deserialize methods:**
+
+Instead of hooking a single field on the owner struct, a type can define its own `serialize` / `deserialize` methods. dessert detects them and routes any value of that type through them - anywhere it appears (a field, a slice element, a map value). This is how you build reusable newtypes and validated wrappers.
+
+```c3
+typedef Email = String;
+
+fn void? Email.serialize(&self, Serializer ser) => ser.serialize_string((String) *self)!;
+
+fn void? Email.deserialize(&self, Deserializer des) {
+    String s = des.next_string()!;
+    if (!s.contains("@")) return INVALID_EMAIL~;
+    *self = (Email) s;
+}
+```
+
+Both methods may take the field's `DFieldConfig` as an optional **second parameter**, letting a type react to the `@DField` attributes on the field that holds it (e.g. read `.fmt` entries):
+
+```c3
+fn void? MyType.serialize(&self, Serializer ser, DFieldConfig config) { ... }
+fn void? MyType.deserialize(&self, Deserializer des, DFieldConfig config) { ... }
+```
+
+The `dessert::values` module ships experimental wrappers built on this - an `Email` type and range-checked `Number{Backing, MIN, MAX}` newtypes. **Still experimental**; the API may change.
+
 **Inspecting field configuration (for format authors and macros):**
 
 The config attached to a field is reachable at compile time so custom formats and generic
@@ -798,6 +823,8 @@ Dessert uses C3's fault system for error handling:
 - [x] Format-specific field attributes via `@DField({ .fmt = { ... } })`
 - [x] Reject duplicate keys via `@DStruct({ .deny_dup_keys = true })`
 - [x] Default values for missing fields via `@DField({ .default_value = "..." })`
+- [x] Type-level custom `serialize` / `deserialize` methods (with optional `DFieldConfig`)
+- [ ] Validated value wrappers in `dessert::values` (experimental)
 - [ ] Deserialize from CSV / XML
 - [ ] Field aliases (`.aliases`)
 - [ ] Support field validation when deserializing

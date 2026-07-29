@@ -34,11 +34,22 @@ macro String FieldAttrs.@get($self, String $needle) @const {
       $case $s == $needle: 
         return "true";
       $case $s[..$needle.len - 1] == $needle:
-        return  $s[$needle.len + 1..];
+        return $s[$needle.len + 1..];
     $endswitch
   $endforeach
 
   return "";
+}
+
+macro FieldAttrs.@get_then($self, String $needle; @body(String $value)) {
+  $foreach $s : $self:
+    $switch: 
+      $case $s == $needle: 
+        @body("true");
+      $case $s[..$needle.len - 1] == $needle:
+        @body($s[$needle.len + 1..]);
+    $endswitch
+  $endforeach
 }
 
 struct DFieldUnionMatch {
