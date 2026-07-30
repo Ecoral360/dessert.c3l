@@ -492,7 +492,7 @@ macro serialize_value(serializer, value, DFieldConfig $config) {
         serialize_value(serializer, inner, $config)!;
       }
 
-    $case $defined(lengthof(value)) &&& $defined(value[0]) &&& $Typeof(value) != String:
+    $case !$defined(String x = value) &&& $defined(lengthof(value)) &&& $defined(value[0]):
       serializer.serialize_slice_start(lengthof(value))!;
 
       $if $Typeof(serializer) == Serializer:

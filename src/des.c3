@@ -615,6 +615,7 @@ macro Output? deserialize_value(deserializer, DFieldConfig $config) <Output> @lo
       }
 
     $case Output::kind == ARRAY: //$defined(value.len) &&& $defined(value[0]) &&& Output != String:
+    $case Output::kind == VECTOR:
       Allocator allocator = utils::@method_fallback{Deserializer}(deserializer, get_allocator, tmem);
       return @deserialize_slice{Output::inner}(deserializer, allocator, $config, Output::len);
 
