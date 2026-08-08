@@ -29,7 +29,8 @@ macro void? Email.deserialize(&self, des) {
 
 $expand(dessert::@derive(Settings));
 struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
-  Maybe{SecretString} api @DField({ .aliases = { "api_key" } });
+  Maybe{SecretString} api_key;
+
   long version;
   bool debug;
 
@@ -78,7 +79,7 @@ fn void main() {
   io::printn(json::tserialize(f).to_pretty_string())!!;
 
   String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
-  Animal? animal = json::tdeserialize{Animal}(json_str)!!;
+  Animal animal = json::tdeserialize{Animal}(json_str)!!;
   io::printn(json::to_tstring(animal))!!;
 
   io::printn(json::tserialize(settings).to_pretty_string())!!;

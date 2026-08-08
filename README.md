@@ -134,10 +134,10 @@ fn int main(String[] args) {
   Person connor = { .age = 20, .name = "Connor", .is_cool = true };
   connor.pets = { sharpie };
 
-  String json = ser::serialize(&&json::string_serializer(), connor)!!;
+  String json = json::tstring_serialize(connor)!!;
   io::printn(json);
 
-  Person? p = des::deserialize{Person}(&&json::tdeserializer(json));
+  Person? p = json::tdeserialize{Person}(json);
   if (catch p) {
     io::printn("Error deserializing");
     return -1;
