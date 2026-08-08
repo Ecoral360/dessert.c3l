@@ -10,6 +10,145 @@ The library is built around two core interfaces:
 - **Serializer**: Converts C3 structs into a target format
 - **Deserializer**: Parses data from a format back into C3 structs
 
+## Installation
+
+### Using [`c3po`](https://github.com/Ecoral360/c3po);
+In your project, run 
+```sh
+c3po add ecoral360/dessert
+```
+
+### Manually
+Get started with dessert: 
+1. Make sure you have the [C3 compiler installed](https://github.com/c3lang/c3c)
+2. Run `c3c init <YOUR_PROJECT>`
+4. Clone the this repository into `<YOUR_PROJECT>/lib/dessert.c3l`
+5. Add `"dependencies": ["dessert"]` to your `project.json`
+6. You are done !
+
+## Usage
+
+### 1. Define Your Struct
+
+Use `$expand(dessert::@derive(...))` to automatically generate `serialize` and `deserialize` methods:
+
+```c3
+$expand(dessert::@derive(Animal));
+struct Animal {
+    String name;
+    String specie;
+}
+```
+
+With no second argument both methods are derived. Pass `serialize` or `deserialize` to derive only one:
+
+```c3
+$expand(dessert::@derive(Animal, serialize));   // serialize only
+$expand(dessert::@derive(Animal, deserialize)); // deserialize only
+```
+
+> **Imports:** `import dessert;` brings in the derive machinery and all the format factories (`json::serializer`, `csv::serializer`, `xml::serializer`, …). Add `import json;` / `import csv;` only when you need to name the value types directly (`JsonValue`, `CSVValue`, `CSVDocument`); XML has no separate value type.
+
+### 2. Serialize
+
+#### To JSON
+```c3
+Animal sharpie = { .specie = "Cat", .name = "Sharpie" };
+String json = json::tstring_serialize(sharpie)!!;
+```
+
+#### To CSV
+
+```c3
+Animal[] animals = {
+    { .name = "Sharpie", .specie = "Cat" },
+    { .name = "Gisele",  .specie = "Bunny" },
+};
+CSVSerializer s = csv::serializer();
+CSVDocument doc = ser::serialize(&s, animals)!;
+io::printn(doc.to_string());
+```
+
+Output:
+```
+"name","specie"
+"Sharpie","Cat"
+"Gisele","Bunny"
+```
+
+### 3. Deserialize
+
+#### From a JSON String
+
+```c3
+String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
+Animal? animal = json::tdeserialize{Animal}(json_str)!!;
+```
+
+#### From a Dotenv file
+
+```c3
+$expand(dessert::@derive(Settings));
+struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
+  Maybe{String} api_key;
+  long version;
+  bool debug;
+
+  Validated{String} url @DField({ .fmt = { `min_length=5` } });
+
+  Loglevel log_level @DField({ .rename = "LOG" });
+
+  Email email @DField({ .required = true });
+  String other_email;
+
+  NumberGt{int, 0} age;
+}
+
+Settings settings = dotenv::tload{Settings}()!!; // takes an optional path to the file, default is "./.env"
+```
+
+## Complete Example
+
+```c3
+module example;
+import std;
+import dessert;
+
+$expand(dessert::@derive(Animal));
+struct Animal {
+  String name;
+  String specie;
+}
+
+$expand(dessert::@derive(Person));
+struct Person {
+  int age;
+  String name;
+  Animal[] pets;
+  Maybe{Person*} friend @DField({ .rename = "my_friend" });
+  bool is_cool @DField({ .skip = true });
+}
+
+fn int main(String[] args) {
+  Animal sharpie = { .name = "Sharpie", .specie = "Cat" };
+  Person connor = { .age = 20, .name = "Connor", .is_cool = true };
+  connor.pets = { sharpie };
+
+  String json = ser::serialize(&&json::string_serializer(), connor)!!;
+  io::printn(json);
+
+  Person? p = des::deserialize{Person}(&&json::tdeserializer(json));
+  if (catch p) {
+    io::printn("Error deserializing");
+    return -1;
+  }
+
+  io::printfn("Person named %s with a %s named %s", p.name, p.pets[0].specie, p.pets[0].name);
+  
+  return 0;
+}
+
+```
 ## Features
 
 ### Serialization
@@ -38,6 +177,7 @@ The library is built around two core interfaces:
 - Enum fallback variant for unknown values via `.fallback`
 - Tagged union deserialization (named, anonymous, and inlined patterns)
 - Field renaming support (different name in the format and in C3)
+- Extra accepted keys per field via `.aliases`
 - Custom per-field decoding via `deserialize_<field>` methods
 - Required fields via `.required` (error when a field is missing)
 - Default field values via `.default_value` when a field is missing
@@ -137,7 +277,7 @@ struct Person {
 | `.skip`          | `bool`     | Skip this field during serialization/deserialization                              |
 | `.skip_if_empty` | `bool`     | Skip this field during serialization if it is empty (null pointer, empty slice, or unset `Maybe`) |
 | `.rename`        | `String`   | Use a different name for this field in the output/input                           |
-| `.aliases`       | `String[]` | Alternative names to accept during deserialization (not yet implemented)          |
+| `.aliases`       | `String[]` | Alternative names to accept during deserialization          |
 | `.validator`     | `String`   | Call a validation method before serialization                                     |
 | `.fmt`           | `FieldAttrs` (`String[]`) | Format-specific per-field attributes, e.g. `{ "xml:attribute" }`. Each entry is read as a bare `key` or as `key=value` |
 | `.flatten`       | `bool`                   | Flatten a nested struct's fields directly into the parent object |
@@ -164,6 +304,34 @@ struct Credentials {
 }
 // deserializing "{}" or {"token": "..."} -> MISSING_REQUIRED_FIELD
 // deserializing {"tok": "abc"}           -> { .token = "abc" }
+```
+
+`.aliases` lists **extra** input keys accepted for a field, on top of its canonical key. It only affects deserialization; serialization always writes the canonical key.
+
+```c3
+struct Account {
+    String name @DFieldDes({ .aliases = { "nom", "nombre" } });
+    int    age;
+}
+// {"name": "bob"}   -> { .name = "bob" }  (canonical key still works)
+// {"nom": "bob"}    -> { .name = "bob" }
+// {"nombre": "bob"} -> { .name = "bob" }
+// {"namen": "bob"}  -> { .name = "" }     (unlisted key, treated as unknown)
+```
+
+It composes with the other naming options:
+
+- with `.rename`, the renamed key and the aliases are accepted, but the field name itself is not;
+- aliases are matched **verbatim**: `rename_all` converts the field name only, never the aliases;
+- an alias satisfies `.required`, and is never reported as an unknown field under `deny_unknown_fields`.
+
+```c3
+struct Config @DStructDes({ .rename_all = UPPER_CASE }) {
+    String api @DFieldDes({ .aliases = { "api_key" } });
+}
+// {"API": "s"}     -> { .api = "s" }   (field name converted by rename_all)
+// {"api_key": "s"} -> { .api = "s" }   (alias taken as written)
+// {"API_KEY": "s"} -> { .api = "" }    (aliases are not converted)
 ```
 
 **Fixed-size arrays (`.array`):**
@@ -529,122 +697,6 @@ struct Request {
 
 > **Note:** when deserializing an inlined union field, the tag field **must** appear before the union field in the input.
 
-## Installation
-
-### Using [`c3po`](https://github.com/Ecoral360/c3po);
-In your project, run 
-```sh
-c3po add ecoral360/dessert
-```
-
-### Manually
-Get started with dessert: 
-1. Make sure you have the [C3 compiler installed](https://github.com/c3lang/c3c)
-2. Run `c3c init <YOUR_PROJECT>`
-4. Clone the this repository into `<YOUR_PROJECT>/lib/dessert.c3l`
-5. Add `"dependencies": ["dessert"]` to your `project.json`
-6. You are done !
-
-## Usage
-
-### 1. Define Your Struct
-
-Use `$expand(dessert::@derive(...))` to automatically generate `serialize` and `deserialize` methods:
-
-```c3
-
-$expand(dessert::@derive(Animal));
-struct Animal {
-    String name;
-    String specie;
-}
-```
-
-With no second argument both methods are derived. Pass `serialize` or `deserialize` to derive only one:
-
-```c3
-$expand(dessert::@derive(Animal, serialize));   // serialize only
-$expand(dessert::@derive(Animal, deserialize)); // deserialize only
-```
-
-> **Imports:** `import dessert;` brings in the derive machinery and all the format factories (`json::serializer`, `csv::serializer`, `xml::serializer`, …). Add `import json;` / `import csv;` only when you need to name the value types directly (`JsonValue`, `CSVValue`, `CSVDocument`); XML has no separate value type.
-
-### 2. Serialize to JSON
-
-```c3
-Animal sharpie = { .specie = "Cat", .name = "Sharpie" };
-String json = ser::serialize(&&json::string_serializer(), sharpie)!!;
-```
-
-### 3. Serialize a Slice to CSV
-
-```c3
-Animal[] animals = {
-    { .name = "Sharpie", .specie = "Cat" },
-    { .name = "Rex",     .specie = "Dog" },
-};
-CSVSerializer s = csv::serializer();
-CSVDocument doc = ser::serialize(&s, animals)!;
-io::printn(doc.to_string());
-```
-
-Output:
-```
-"name","specie"
-"Sharpie","Cat"
-"Rex","Dog"
-```
-
-### 4. Deserialize from JSON String
-
-```c3
-String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
-Animal? animal = des::deserialize{Animal}(&&json::tdeserializer(json_str));
-```
-
-## Complete Example
-
-```c3
-module example;
-import std;
-import dessert;
-import json;
-
-$expand(dessert::@derive(Animal));
-struct Animal {
-  String name;
-  String specie;
-}
-
-$expand(dessert::@derive(Person));
-struct Person {
-  int age;
-  String name;
-  Animal[] pets;
-  Maybe{Person*} friend @DField({ .rename = "my_friend" });
-  bool is_cool @DField({ .skip = true });
-}
-
-fn int main(String[] args) {
-  Animal sharpie = { .name = "Sharpie", .specie = "Cat" };
-  Person connor = { .age = 20, .name = "Connor", .is_cool = true };
-  connor.pets = { sharpie };
-
-  String json = ser::serialize(&&json::string_serializer(), connor)!!;
-  io::printn(json);
-
-  Person? p = des::deserialize{Person}(&&json::tdeserializer(json));
-  if (catch p) {
-    io::printn("Error deserializing");
-    return -1;
-  }
-
-  io::printfn("Person named %s with a %s named %s", p.name, p.pets[0].specie, p.pets[0].name);
-  
-  return 0;
-}
-```
-
 ## Architecture
 
 ### Serializer Interface
@@ -794,7 +846,7 @@ Dessert uses C3's fault system for error handling:
 
 1. **Use `@derive` for full round-trip support**: `$expand(dessert::@derive(MyStruct))` generates both `serialize` and `deserialize` at once with no boilerplate.
 
-2. **Use skip for sensitive data**: Mark fields that shouldn't be serialized (e.g., passwords) with `.skip = true`.
+2. **Use skip for sensitive data**: Mark fields that shouldn't be serialized (e.g., passwords) with `.skip = true` or use the `SecretString` type that serializes to `"*****"`.
 
 3. **Tag fields before union fields**: When deserializing tagged unions, the tag field must appear before the union field in the JSON input. If using `.inlined = true`, the tag must appear first in the wire format to avoid `INLINED_UNION_BEFORE_TAG`.
 
@@ -832,10 +884,10 @@ Dessert uses C3's fault system for error handling:
 - [x] Reject duplicate keys via `@DStruct({ .deny_dup_keys = true })`
 - [x] Default values for missing fields via `@DField({ .default_value = "..." })`
 - [x] Type-level custom `serialize` / `deserialize` methods (with optional `DFieldConfig`)
+- [x] Support field validation when deserializing (via types with a custom `deserialize` method)
+- [x] Field aliases (`.aliases`)
 - [ ] Validated value wrappers in `dessert::values` (experimental)
 - [ ] Deserialize from CSV / XML
-- [ ] Field aliases (`.aliases`)
-- [ ] Support field validation when deserializing
 
 ## License
 

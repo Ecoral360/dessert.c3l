@@ -1580,8 +1580,8 @@ fn void test_des_manual_field_void_fault_propagates() @test => @pool() {
 
 // ── Field aliases (.aliases) ─────────────────────────────────────────────────
 // `.aliases` lists extra input keys accepted for a field. The canonical key
-// (the field name, or `.rename` when set) keeps working, and every alias goes
-// through the struct's `rename_all` convention like any other key.
+// (the field name, or `.rename` when set) keeps working, and every alias is
+// matched verbatim: no `rename_all` conversion is applied to it.
 
 $expand(dessert::@derive(DAliased, deserialize));
 struct DAliased {
@@ -1596,10 +1596,10 @@ struct DAliasedRenamed {
   String ident @DFieldDes({ .rename = "id", .aliases = { "identifier" } });
 }
 
-// aliases are rewritten with the struct's rename_all convention.
+// rename_all applies to the field name only; aliases are taken as written.
 $expand(dessert::@derive(DAliasedRenameAll, deserialize));
 struct DAliasedRenameAll @DStructDes({ .rename_all = UPPER_CASE }) {
-  String api @DFieldDes({ .aliases = { "API_KEY" } });
+  String api @DFieldDes({ .aliases = { "api_key" } });
   int    port;
 }
 
@@ -1658,19 +1658,27 @@ fn void test_des_alias_with_rename_field_name_not_accepted() @test => @pool() {
   assert(v.ident == "");
 }
 
-fn void test_des_alias_follows_rename_all() @test => @pool() {
-  // rename_all = UPPER_CASE applies to the alias too: "api_key" → "API_KEY"
-  const String JSON = `{"API_KEY": "secret", "PORT": 8080}`;
+fn void test_des_alias_is_verbatim_under_rename_all() @test => @pool() {
+  // the alias is matched as written; rename_all only converts the field name
+  const String JSON = `{"api_key": "secret", "PORT": 8080}`;
   DAliasedRenameAll v = des::deserialize{DAliasedRenameAll}(&&json::tdeserializer(JSON))!!;
   assert(v.api == "secret");
   assert(v.port == 8080);
 }
 
-fn void test_des_alias_raw_case_not_matched_under_rename_all() @test => @pool() {
-  // the alias is only accepted in its converted form, so "api_key" misses
-  const String JSON = `{"api_key": "secret", "PORT": 8080}`;
+fn void test_des_alias_not_converted_by_rename_all() @test => @pool() {
+  // "API_KEY" is the rename_all form of the alias, which is never generated
+  const String JSON = `{"API_KEY": "secret", "PORT": 8080}`;
   DAliasedRenameAll v = des::deserialize{DAliasedRenameAll}(&&json::tdeserializer(JSON))!!;
   assert(v.api == "");
+  assert(v.port == 8080);
+}
+
+fn void test_des_alias_canonical_key_still_renamed_all() @test => @pool() {
+  // the field name itself is still converted: "api" → "API"
+  const String JSON = `{"API": "secret", "PORT": 8080}`;
+  DAliasedRenameAll v = des::deserialize{DAliasedRenameAll}(&&json::tdeserializer(JSON))!!;
+  assert(v.api == "secret");
   assert(v.port == 8080);
 }
 
