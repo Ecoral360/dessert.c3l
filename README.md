@@ -82,7 +82,7 @@ Output:
 
 ```c3
 String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
-Animal? animal = json::tdeserialize{Animal}(json_str)!!;
+Animal? animal = json::tdeserialize{Animal}(json_str);
 ```
 
 #### From a Dotenv file
