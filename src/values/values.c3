@@ -15,6 +15,12 @@ macro void? Email.deserialize(&self, des) {
   *self = (Email) s;
 }
 
+typedef SecretString = String;
+macro void? SecretString.serialize(&self, ser) => ser::serialize_value(ser, "*****", {})!;
+macro void? SecretString.deserialize(&self, des) {
+  *self = (SecretString) des.next_string()!;
+}
+
 typedef Validated<Type> = Type;
 macro void? Validated.serialize(&self, ser) => ser::serialize_value(ser, (Type) *self, {})!;
 macro void? Validated.deserialize(&self, des, DFieldConfig $config) {

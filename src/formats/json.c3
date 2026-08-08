@@ -291,6 +291,9 @@ struct JsonStringSerializer (Serializer) {
   DString output;
 }
 
+alias to_string = string_serialize;
+alias to_tstring = tstring_serialize;
+
 macro String? string_serialize(Allocator allocator, value) {
   return ser::serialize(&&json::string_serializer(allocator), value);
 }

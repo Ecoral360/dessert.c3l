@@ -29,11 +29,11 @@ macro void? Email.deserialize(&self, des) {
 
 $expand(dessert::@derive(Settings));
 struct Settings @DStruct({ .rename_all = UPPER_CASE }) {
-  Maybe{String} api_key;
+  Maybe{SecretString} api @DField({ .aliases = { "api_key" } });
   long version;
   bool debug;
 
-  Validated{String} url @DField({ .fmt = { `max_length=5` } });
+  Validated{String} url @DField({ .fmt = { `min_length=5` } });
 
   Loglevel log_level @DField({ .rename = "LOG" });
 
@@ -61,13 +61,25 @@ fn void? Settings.deserialize_other_email(&self, Deserializer des) {
   self.other_email = s;
 }
 
+$expand(dessert::@derive(Animal));
+struct Animal {
+    String name;
+    String specie;
+}
 
 fn void main() {
   Settings settings = dotenv::tload{Settings}()!!;
 
+  Animal sharpie = { .specie = "Cat", .name = "Sharpie" };
+  String json = json::to_tstring(sharpie)!!;
+  io::printn(json);
+
   FixedArrayWrap f = json::tdeserialize{FixedArrayWrap}(`{"data": [10, 20, 30, 40]}`)!!;
   io::printn(json::tserialize(f).to_pretty_string())!!;
 
+  String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
+  Animal? animal = json::tdeserialize{Animal}(json_str)!!;
+  io::printn(json::to_tstring(animal))!!;
 
   io::printn(json::tserialize(settings).to_pretty_string())!!;
 }
