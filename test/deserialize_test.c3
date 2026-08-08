@@ -1577,3 +1577,118 @@ fn void test_des_manual_field_void_fault_propagates() @test => @pool() {
   DManualSelfAssign? v = des::deserialize{DManualSelfAssign}(&&json::tdeserializer(JSON));
   assert(@catch(v)); // next_double faults on a string value
 }
+
+// ── Field aliases (.aliases) ─────────────────────────────────────────────────
+// `.aliases` lists extra input keys accepted for a field. The canonical key
+// (the field name, or `.rename` when set) keeps working, and every alias goes
+// through the struct's `rename_all` convention like any other key.
+
+$expand(dessert::@derive(DAliased, deserialize));
+struct DAliased {
+  String name @DFieldDes({ .aliases = { "nom", "nombre" } });
+  int    age;
+}
+
+// aliases next to rename: the renamed key AND the aliases are accepted, but the
+// field name itself no longer is.
+$expand(dessert::@derive(DAliasedRenamed, deserialize));
+struct DAliasedRenamed {
+  String ident @DFieldDes({ .rename = "id", .aliases = { "identifier" } });
+}
+
+// aliases are rewritten with the struct's rename_all convention.
+$expand(dessert::@derive(DAliasedRenameAll, deserialize));
+struct DAliasedRenameAll @DStructDes({ .rename_all = UPPER_CASE }) {
+  String api @DFieldDes({ .aliases = { "API_KEY" } });
+  int    port;
+}
+
+// an alias must satisfy `required`, and must not count as an unknown field.
+$expand(dessert::@derive(DAliasedRequired, deserialize));
+struct DAliasedRequired @DStructDes({ .deny_unknown_fields = true }) {
+  String token @DFieldDes({ .aliases = { "tok" }, .required = true });
+}
+
+fn void test_des_alias_canonical_name_still_works() @test => @pool() {
+  const String JSON = `{"name": "bob", "age": 5}`;
+  DAliased v = des::deserialize{DAliased}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 5);
+}
+
+fn void test_des_alias_first_alias() @test => @pool() {
+  const String JSON = `{"nom": "bob", "age": 5}`;
+  DAliased v = des::deserialize{DAliased}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 5);
+}
+
+fn void test_des_alias_second_alias() @test => @pool() {
+  // every entry of the alias list is accepted, not only the first one
+  const String JSON = `{"nombre": "bob", "age": 5}`;
+  DAliased v = des::deserialize{DAliased}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 5);
+}
+
+fn void test_des_alias_unlisted_key_is_not_matched() @test => @pool() {
+  // "namen" is not an alias → the field stays at its default
+  const String JSON = `{"namen": "bob", "age": 5}`;
+  DAliased v = des::deserialize{DAliased}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "");
+  assert(v.age == 5);
+}
+
+fn void test_des_alias_with_rename_uses_renamed_key() @test => @pool() {
+  const String JSON = `{"id": "abc"}`;
+  DAliasedRenamed v = des::deserialize{DAliasedRenamed}(&&json::tdeserializer(JSON))!!;
+  assert(v.ident == "abc");
+}
+
+fn void test_des_alias_with_rename_uses_alias() @test => @pool() {
+  const String JSON = `{"identifier": "abc"}`;
+  DAliasedRenamed v = des::deserialize{DAliasedRenamed}(&&json::tdeserializer(JSON))!!;
+  assert(v.ident == "abc");
+}
+
+fn void test_des_alias_with_rename_field_name_not_accepted() @test => @pool() {
+  // `.rename` replaces the field name; "ident" is neither the key nor an alias
+  const String JSON = `{"ident": "abc"}`;
+  DAliasedRenamed v = des::deserialize{DAliasedRenamed}(&&json::tdeserializer(JSON))!!;
+  assert(v.ident == "");
+}
+
+fn void test_des_alias_follows_rename_all() @test => @pool() {
+  // rename_all = UPPER_CASE applies to the alias too: "api_key" → "API_KEY"
+  const String JSON = `{"API_KEY": "secret", "PORT": 8080}`;
+  DAliasedRenameAll v = des::deserialize{DAliasedRenameAll}(&&json::tdeserializer(JSON))!!;
+  assert(v.api == "secret");
+  assert(v.port == 8080);
+}
+
+fn void test_des_alias_raw_case_not_matched_under_rename_all() @test => @pool() {
+  // the alias is only accepted in its converted form, so "api_key" misses
+  const String JSON = `{"api_key": "secret", "PORT": 8080}`;
+  DAliasedRenameAll v = des::deserialize{DAliasedRenameAll}(&&json::tdeserializer(JSON))!!;
+  assert(v.api == "");
+  assert(v.port == 8080);
+}
+
+fn void test_des_alias_satisfies_required() @test => @pool() {
+  // the required field arrives under its alias → no MISSING_REQUIRED_FIELD,
+  // and deny_unknown_fields does not treat the alias as unknown
+  const String JSON = `{"tok": "abc"}`;
+  DAliasedRequired v = des::deserialize{DAliasedRequired}(&&json::tdeserializer(JSON))!!;
+  assert(v.token == "abc");
+}
+
+fn void test_des_alias_required_still_faults_when_absent() @test => @pool() {
+  // neither the canonical key nor an alias is present
+  const String JSON = `{"other": "abc"}`;
+  DAliasedRequired? v = des::deserialize{DAliasedRequired}(&&json::tdeserializer(JSON));
+  if (catch err = v) {
+    assert(err == des::UNKNOWN_FIELD || err == des::MISSING_REQUIRED_FIELD);
+  } else {
+    assert(false); // must have faulted
+  }
+}

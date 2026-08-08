@@ -340,7 +340,7 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
     value.$member = deserialize_value{$member.type}(deserializer, $config)!;
     return true;
   $else 
-    if ($name == next_key || @match_alias(next_key, $config.aliases, $struct_config.rename_all)) {
+    if ($name == next_key || @match_alias(next_key, $config.aliases)) {
       $if !$config.skip:
         $if $defined(value.$eval(@sprintf("deserialize_%s", $member.name))) &&& $defined(value.$eval(@sprintf("deserialize_%s", $member.name))(deserializer)):
           (void) deserializer.next_field_name()!;
@@ -477,10 +477,10 @@ macro bool? @des_field(deserializer, value, $member, next_key, uint[] names, DSt
   $endif
 }
 
-macro @match_alias(value, String[] $aliases, CaseConvention $rename_all) @local {
+macro @match_alias(value, String[] $aliases) @local {
   var $cond = "return false ";
   $foreach $alias : $aliases :
-    $cond +++= @sprintf(` || value == "%s"`, utils::@rename({}, $alias, $rename_all));
+    $cond +++= @sprintf(` || value == "%s"`, $alias);
   $endforeach
   $cond +++= ";";
   $expand($cond);
