@@ -541,7 +541,7 @@ fn void test_des_zero_values() @test => @pool()  {
 
 fn void test_des_object_any_basic() @test => @pool()  {
   const String JSON = `{"count": 3, "ok": true, "msg": "hello", "empty": null}`;
-  Object* obj = des::deserialize{Object*}(&&json::tdebug_deserializer(JSON))!!;
+  Object* obj = des::deserialize{Object*}(&&json::tdeserializer(JSON, debug: true))!!;
   assert(obj != null);
 }
 
@@ -1699,4 +1699,30 @@ fn void test_des_alias_required_still_faults_when_absent() @test => @pool() {
   } else {
     assert(false); // must have faulted
   }
+}
+
+// ── Flattened HashMap: keys arriving out of declaration order ────────────────
+// A flattened `HashMap` gathers the keys that match no declared field. It must
+// only take those: a key belonging to a field declared *after* the map still
+// has to reach that field, whatever order the input lists them in.
+
+$expand(dessert::@derive(DFlatMapOrder, deserialize));
+struct DFlatMapOrder {
+  String name;
+  int    age;
+  HashMap{String, int} extra @DFieldDes({ .flatten = true });
+}
+
+fn void test_des_flatten_hashmap_out_of_order() @test => @pool() {
+  // "age" is declared after the flattened map and arrives between two of the
+  // map's own keys
+  const String JSON = `{"name": "bob", "x": 1, "age": 30, "y": 2}`;
+  DFlatMapOrder v = des::deserialize{DFlatMapOrder}(&&json::tdeserializer(JSON))!!;
+  assert(v.name == "bob");
+  assert(v.age == 30);
+  assert(v.extra.len() == 2);
+  assert(v.extra["x"]!! == 1);
+  assert(v.extra["y"]!! == 2);
+  assert(@catch(v.extra["age"]));  // must have gone to the `age` field
+  assert(@catch(v.extra["name"])); // must have gone to the `name` field
 }

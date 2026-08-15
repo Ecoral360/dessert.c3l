@@ -414,6 +414,9 @@ enum JsonFlavor {
 
 macro @is_valid_input(input) @local => $Typeof(input) == String ||| $defined(InStream x = input);
 
+alias from_string<Type> = deserialize{Type};
+alias tfrom_string<Type> = tdeserialize{Type};
+
 <* @require @is_valid_input(input) : "input must be a string or an InStream" *>
 macro Type? deserialize(Allocator allocator, input, JsonFlavor flavor = JSONC) <Type> {
   return des::deserialize{Type}(&&json::deserializer(allocator, input, flavor));
