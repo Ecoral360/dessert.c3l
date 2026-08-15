@@ -4,6 +4,7 @@ import dessert::utils @public;
 import std::io;
 import std::core::types;
 import std::collections::maybe;
+import std::collections::object;
 
 <*
   A `Serializer` receives a stream of structured events describing a value and turns
@@ -424,6 +425,24 @@ macro @is_empty(#value) {
 
 macro serialize_value(serializer, value, DFieldConfig $config) {
   $switch:
+    // An `Object` holds a value whose shape is only known at runtime, so it
+    // emits its own struct/slice delimiters instead of being wrapped in the
+    // `struct_start`/`struct_end` pair the generic case below adds.
+    $case $Typeof(value) == Object ||| $Typeof(value) == Object*:
+      $if $Typeof(value) == Object*:
+        if (value == null) {
+          serializer.serialize_null()!;
+          return;
+        }
+      $endif
+      $if !$config.flatten:
+        if (value.is_map() || value.is_empty()) serializer.struct_start("Object")!;
+      $endif
+      value.serialize(serializer)!;
+      $if !$config.flatten:
+        if (value.is_map() || value.is_empty()) serializer.struct_end("Object")!;
+      $endif
+
     $case $defined(value.serialize) &&& $defined(value.serialize(serializer)):
       var $type = $reflect(value).type;
       $if $type.kind == POINTER:

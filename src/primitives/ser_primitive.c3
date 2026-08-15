@@ -123,10 +123,72 @@ faultdef UNSUPPORTED_DATA_TYPE;
 // //   return UNSUPPORTED_DATA_TYPE~;
 // // }
 //
-fn void? Object.serialize(&self, Serializer des) @dynamic {
-  switch (self.type) {
+<*
+  Serialize a dynamically-typed `Object*`, the mirror image of `next_any` on the
+  deserializer side.
+
+  Unlike the other `serialize` methods, this one emits its own struct and slice
+  delimiters: the shape is only known at runtime, so `serialize_value` cannot
+  wrap the call in `struct_start`/`struct_end` up front (see the `Object` case
+  there).
+*>
+fn void? Object.serialize(&self, Serializer ser) {
+  switch {
+    // `new_obj` yields an object of type `void`, i.e. a map with no entry yet.
+    case self.is_empty():
+      break;
+
+    case self.is_null():
+      return ser.serialize_null();
+
+    case self.is_bool():
+      return ser.serialize_bool(self.b);
+
+    case self.is_string():
+      return ser.serialize_string(self.s);
+
+    case self.is_float():
+      return ser.serialize_double(self.f);
+
+    case self.is_int():
+      return ser.serialize_long((long) self.i);
+
+    case self.is_enum():
+      return ser.serialize_long((long) self.i);
+
+    case self.is_array():
+      long len = (long) self.array.len();
+      ser.serialize_slice_start(len)!;
+      foreach (i, item : self.array) {
+        if (&ser.serialize_slice_item_start) ser.serialize_slice_item_start((usz) i)!;
+        ser::serialize_value(ser, item, {})!;
+        if (&ser.serialize_slice_item_end) ser.serialize_slice_item_end((usz) i)!;
+      }
+      ser.serialize_slice_end(len)!;
+
+    case self.is_map():
+      self.map.@each(; String key, Object* value) {
+        ser.serialize_field_start(key, {}, $Typeof(*self))!;
+        ser::serialize_value(ser, value, {})!;
+        ser.serialize_field_end(key, {}, $Typeof(*self))!;
+      };
+
     default:
-      return UNSUPPORTED_DATA_TYPE~;
+      // `void*` other than the shared null object, and any other payload the
+      // std `Object` may grow later.
+      switch (self.type.kind) {
+        case POINTER:
+          return ser.serialize_null();
+        case SIGNED_INT:
+          return ser.serialize_long((long) self.i);
+        case UNSIGNED_INT:
+          if (&ser.serialize_ulong) return ser.serialize_ulong((ulong) self.i);
+          return ser.serialize_long((long) self.i);
+        case FLOAT:
+          return ser.serialize_double(self.f);
+        default:
+          return UNSUPPORTED_DATA_TYPE~;
+      }
   }
 }
 

@@ -79,7 +79,7 @@ fn void main() {
   io::printn(json::tserialize(f).to_pretty_string())!!;
 
   String json_str = "{\"name\": \"Sharpie\", \"specie\": \"Cat\"}";
-  Animal animal = json::tdeserialize{Animal}(json_str)!!;
+  Animal animal = json::tfrom_string{Animal}(json_str)!!;
   io::printn(json::to_tstring(animal))!!;
 
   io::printn(json::tserialize(settings).to_pretty_string())!!;

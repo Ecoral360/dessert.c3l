@@ -53,7 +53,7 @@ macro @rename(DFieldConfig $config, String $name, CaseConvention $convention) @c
         return @str_replace(@str_snakecase($name), "_", "-");
 
       $default:
-        $error @sprintf("CaseConvention %s not supported for now.");
+        $error @sprintf("CaseConvention %s not supported for now.", $convention);
     $endswitch
   $endif
 }

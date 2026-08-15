@@ -1098,3 +1098,89 @@ fn void test_ser_manual_field_via_tree() @test {
   assert(j.value.d.get("name")!!.value.s == "bob");
   assert(j.value.d.get("secret")!!.value.s == "***");
 }
+
+// ── Tests: Object* (dynamically typed values) ────────────────────────────────
+// `Object.serialize` is the mirror of the deserializer's `next_any`: the shape
+// is only known at runtime, so it drives the serializer events itself.
+
+$expand(dessert::@derive(SWithObject, serialize));
+struct SWithObject {
+  String  name;
+  Object* payload;
+}
+
+fn void test_ser_object_scalars() @test => @pool() {
+  test::eq(json::tstring_serialize(object::new_string(tmem, "hello"))!!, `"hello"`);
+  test::eq(json::tstring_serialize(object::new_int(tmem, 42))!!, "42");
+  test::eq(json::tstring_serialize(object::new_int(tmem, -7))!!, "-7");
+  test::eq(json::tstring_serialize(object::new_float(tmem, 1.5))!!, "1.500000");
+  test::eq(json::tstring_serialize(object::new_bool(true))!!, "true");
+  test::eq(json::tstring_serialize(object::new_bool(false))!!, "false");
+  test::eq(json::tstring_serialize(object::new_null())!!, "null");
+}
+
+fn void test_ser_object_empty_map() @test => @pool() {
+  // `new_obj` has type `void` until a key is set: an empty object, not null
+  test::eq(json::tstring_serialize(object::new_obj(tmem))!!, "{}");
+}
+
+fn void test_ser_object_map() @test => @pool() {
+  Object* obj = object::new_obj(tmem);
+  obj.set("name", "Sharpie");
+  test::eq(json::tstring_serialize(obj)!!, `{"name":"Sharpie"}`);
+}
+
+fn void test_ser_object_array() @test => @pool() {
+  Object* arr = object::new_array(tmem);
+  arr.push(1);
+  arr.push("two");
+  arr.push(true);
+  test::eq(json::tstring_serialize(arr)!!, `[1,"two",true]`);
+}
+
+fn void test_ser_object_empty_array() @test => @pool() {
+  test::eq(json::tstring_serialize(object::new_array(tmem))!!, "[]");
+}
+
+fn void test_ser_object_nested() @test => @pool() {
+  Object* root  = object::new_obj(tmem);
+  Object* inner = object::new_obj(tmem);
+  inner.set("d", "x");
+  Object* arr = object::new_array(tmem);
+  arr.push(inner);
+  root.set("c", arr);
+  test::eq(json::tstring_serialize(root)!!, `{"c":[{"d":"x"}]}`);
+}
+
+fn void test_ser_object_field_in_struct() @test => @pool() {
+  Object* payload = object::new_obj(tmem);
+  payload.set("id", 7);
+  SWithObject v = { .name = "bob", .payload = payload };
+  test::eq(json::tstring_serialize(v)!!, `{"name":"bob","payload":{"id":7}}`);
+}
+
+fn void test_ser_object_null_field_in_struct() @test => @pool() {
+  SWithObject v = { .name = "bob", .payload = null };
+  test::eq(json::tstring_serialize(v)!!, `{"name":"bob","payload":null}`);
+}
+
+fn void test_ser_object_roundtrip() @test => @pool() {
+  // parse into an Object*, then write it back out unchanged. `next_any` stores
+  // every JSON number as a float, so numbers come back in double formatting
+  // (`1` would be written back as `1.000000`).
+  const String JSON = `{"c":[1.500000,"two",{"d":null},true]}`;
+  Object* obj = json::tdeserialize{Object*}(JSON)!!;
+  test::eq(json::tstring_serialize(obj)!!, JSON);
+}
+
+fn void test_ser_object_via_tree_serializer() @test => @pool() {
+  // the same events also feed the JsonValue (tree) serializer
+  Object* obj = object::new_obj(tmem);
+  obj.set("n", 3);
+  JsonSerializer s = json::serializer();
+  JsonValue j = ser::serialize(&s, obj)!!;
+  defer j.free();
+
+  assert(j.kind == JsonValueKind.DICT);
+  assert(j.value.d.get("n")!!.value.i == 3);
+}
