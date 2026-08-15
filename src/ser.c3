@@ -597,13 +597,13 @@ macro @serialize_primitive_value(ser, value) @local {
       return ser.serialize_bool(value);
 
     $case ichar:
-      return utils::@method_fallback{Serializer}(ser, serialize_ichar, ser.serialize_long(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_ichar, ser.serialize_long((long) value), value)!;
 
     $case short:
-      return utils::@method_fallback{Serializer}(ser, serialize_short, ser.serialize_long(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_short, ser.serialize_long((long) value), value)!;
 
     $case int:
-      return utils::@method_fallback{Serializer}(ser, serialize_int, ser.serialize_long(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_int, ser.serialize_long((long) value), value)!;
 
     $case long:
       return ser.serialize_long(value)!;
@@ -612,22 +612,22 @@ macro @serialize_primitive_value(ser, value) @local {
       return utils::@method_fallback{Serializer}(ser, serialize_int128, UNSUPPORTED_DATATYPE~, value)!;
 
     $case ushort:
-      return utils::@method_fallback_chain{Serializer}(ser, serialize_ushort, serialize_ulong, serialize_long, value)!;
+      return utils::@method_fallback_chain{Serializer}(ser, serialize_ushort, serialize_ulong, serialize_long, #args: value)!;
 
     $case uint:
-      return utils::@method_fallback_chain{Serializer}(ser, serialize_uint, serialize_ulong, serialize_long, value)!;
+      return utils::@method_fallback_chain{Serializer}(ser, serialize_uint, serialize_ulong, serialize_long, #args: value)!;
 
     $case ulong:
-      return utils::@method_fallback{Serializer}(ser, serialize_ulong, ser.serialize_long(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_ulong, ser.serialize_long((long) value), value)!;
 
     $case uint128:
       return utils::@method_fallback{Serializer}(ser, serialize_uint128, UNSUPPORTED_DATATYPE~)!;
 
     $case float16:
-      return utils::@method_fallback{Serializer}(ser, serialize_float16, ser.serialize_double(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_float16, ser.serialize_double((double) value), value)!;
 
     $case float:
-      return utils::@method_fallback{Serializer}(ser, serialize_float, ser.serialize_double(value), value)!;
+      return utils::@method_fallback{Serializer}(ser, serialize_float, ser.serialize_double((double) value), value)!;
 
     $case double:
       return ser.serialize_double(value)!;
