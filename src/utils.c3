@@ -121,7 +121,7 @@ macro @method_fallback_chain(des, #method, ..., #args = ...) <Interface> @privat
 	$if $Typeof(des) == Interface:
 		if (&des.$method) {
       $if $defined(#args):
-        return des.$method(#args);
+        return des.$method(($Typefrom($Typeof(des.$method)::params[0].type)) #args);
       $else
         return des.$method();
       $endif
@@ -132,7 +132,7 @@ macro @method_fallback_chain(des, #method, ..., #args = ...) <Interface> @privat
 			// Would prefer to use else if, but it probably doesn't matter
 			if (&des.$fallback) {
         $if $defined(#args):
-          return des.$fallback(#args);
+          return des.$fallback(($Typefrom($Typeof(des.$fallback)::params[0].type)) #args);
         $else
           return des.$fallback();
         $endif
@@ -142,7 +142,7 @@ macro @method_fallback_chain(des, #method, ..., #args = ...) <Interface> @privat
 
 	$if $defined(des.$method):
     $if $defined(#args):
-      return des.$method(#args);
+      return des.$method(($Typefrom($Typeof(des.$method)::params[0].type)) #args);
     $else
       return des.$method();
     $endif
@@ -151,7 +151,7 @@ macro @method_fallback_chain(des, #method, ..., #args = ...) <Interface> @privat
       var $fallback = $stringify($vaarg[$i]);
       $if $defined(des.$fallback):
         $if $defined(#args):
-          return des.$fallback(#args);
+          return des.$fallback(($Typefrom($Typeof(des.$fallback)::params[0].type)) #args);
         $else
           return des.$fallback();
         $endif
