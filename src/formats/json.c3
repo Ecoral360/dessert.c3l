@@ -842,7 +842,7 @@ fn Object*? JsonDeserializer.next_any(&self) @dynamic {
       return o;
 
     case '[':
-      Object* o = object::new_obj(self.allocator);
+      Object* o = object::new_array(self.allocator);
       defer catch o.free();
 
       if (self.next()! != '[') return UNEXPECTED_CHARACTER~;
